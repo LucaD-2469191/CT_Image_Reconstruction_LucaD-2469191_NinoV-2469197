@@ -1,0 +1,11 @@
+# Task ID: 2
+# Title: Implement CTSlice - Direct Fourier Reconstruction
+# Status: pending
+# Dependencies: 1
+# Priority: high
+# Description: Implement the Direct Fourier Reconstruction method using Fourier Slice Theorem. Function takes sinogram and angle range (180° or 360°) as input and returns reconstructed CT slice. Must use fftshift/ifftshift for correct phase information. Works only for parallel projection.
+# Details:
+
+
+# Test Strategy:
+

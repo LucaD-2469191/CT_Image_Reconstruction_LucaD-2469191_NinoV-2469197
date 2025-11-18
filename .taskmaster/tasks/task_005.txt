@@ -1,0 +1,11 @@
+# Task ID: 5
+# Title: Implement Sinogram Generation
+# Status: pending
+# Dependencies: 1
+# Priority: medium
+# Description: Implement method to generate sinograms from arbitrary images. This is the forward Radon transform. Should support different numbers of angles and projection types.
+# Details:
+
+
+# Test Strategy:
+

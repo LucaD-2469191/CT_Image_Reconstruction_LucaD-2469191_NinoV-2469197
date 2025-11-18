@@ -1,0 +1,11 @@
+# Task ID: 4
+# Title: Implement Rebinning algorithm
+# Status: pending
+# Dependencies: 2, 3
+# Priority: high
+# Description: Implement rebinning to convert divergent projection (fan-beam) sinograms to parallel projection sinograms. Function takes sinogram and parameters (FOD, FDD, sensor width, center offset) as input. Must account for Y-axis pointing downward in image coordinate systems. Output is rebinned sinogram usable by CTSlice and CTRadon.
+# Details:
+
+
+# Test Strategy:
+

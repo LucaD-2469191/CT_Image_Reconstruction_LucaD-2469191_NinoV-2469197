@@ -1,0 +1,11 @@
+# Task ID: 11
+# Title: Prepare final submission package
+# Status: pending
+# Dependencies: 10
+# Priority: high
+# Description: Create .zip archive with three directories: src/ (Python code and input data), doc/ (PDF report), results/ (input/output images). Ensure code is easily executable. Verify all requirements are met for submission deadline (January 22, 2026).
+# Details:
+
+
+# Test Strategy:
+

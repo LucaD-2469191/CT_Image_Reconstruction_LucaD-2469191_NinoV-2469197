@@ -1,0 +1,159 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Set up project structure and dependencies",
+        "description": "Create the necessary directory structure (src/, doc/, results/) and set up Python dependencies including numpy, scipy, opencv, matplotlib",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Implement CTSlice - Direct Fourier Reconstruction",
+        "description": "Implement the Direct Fourier Reconstruction method using Fourier Slice Theorem. Function takes sinogram and angle range (180° or 360°) as input and returns reconstructed CT slice. Must use fftshift/ifftshift for correct phase information. Works only for parallel projection.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          1
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 3,
+        "title": "Implement CTRadon - Filtered Backprojection",
+        "description": "Implement Filtered Backprojection (FBP) method. Apply filter to sinogram before backprojection to remove blurriness. Function takes sinogram and angle range as input. May use OpenCV's getRotationMatrix2D and warpAffine. Cannot use skimage's iradon in implementation (only for comparison). Works only for parallel projection.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          1
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Implement Rebinning algorithm",
+        "description": "Implement rebinning to convert divergent projection (fan-beam) sinograms to parallel projection sinograms. Function takes sinogram and parameters (FOD, FDD, sensor width, center offset) as input. Must account for Y-axis pointing downward in image coordinate systems. Output is rebinned sinogram usable by CTSlice and CTRadon.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          2,
+          3
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Implement Sinogram Generation",
+        "description": "Implement method to generate sinograms from arbitrary images. This is the forward Radon transform. Should support different numbers of angles and projection types.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          1
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Test with parallel projection data",
+        "description": "Test CTSlice and CTRadon implementations with provided parallel projection sinograms (SheppLoganPhantom, Lotus, Walnut). Compare results between both methods. Test with both 180° and 360° angle ranges.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          2,
+          3
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Test with divergent projection data",
+        "description": "Test Rebinning algorithm with provided divergent projection sinograms (lotus_divergent, walnut_divergent). Use rebinned output with CTSlice and CTRadon. Compare reconstruction quality before and after rebinning.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          4,
+          6
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Conduct sinogram generation experiments",
+        "description": "Test sinogram generation with custom images. Analyze: (1) impact of number of angles on reconstruction quality, (2) possibility of exact reconstruction, (3) application to photos. Document observations for report.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          5,
+          6
+        ],
+        "priority": "medium",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Implement extra features (optional)",
+        "description": "For higher grade: (1) Auto-detect if sinogram is 180° or 360°, (2) Auto-detect if sensor images are stacked horizontally or vertically, (3) Implement additional filter methods for FBP.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          6,
+          7
+        ],
+        "priority": "low",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Create comprehensive documentation",
+        "description": "Write 5-page report (PDF) describing: (1) Content of src directory, (2) Program usage instructions, (3) Implementation details of each algorithm, (4) Experimental results and observations, (5) Mathematical background and theory.",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          6,
+          7,
+          8
+        ],
+        "priority": "high",
+        "subtasks": []
+      },
+      {
+        "id": 11,
+        "title": "Prepare final submission package",
+        "description": "Create .zip archive with three directories: src/ (Python code and input data), doc/ (PDF report), results/ (input/output images). Ensure code is easily executable. Verify all requirements are met for submission deadline (January 22, 2026).",
+        "details": "",
+        "testStrategy": "",
+        "status": "pending",
+        "dependencies": [
+          10
+        ],
+        "priority": "high",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-11-18T09:35:23.433Z",
+      "description": "Default tasks context",
+      "updated": "2025-11-18T09:36:17.268Z"
+    }
+  }
+}

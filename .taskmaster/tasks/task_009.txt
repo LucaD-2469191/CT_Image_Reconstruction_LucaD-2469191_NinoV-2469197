@@ -1,0 +1,11 @@
+# Task ID: 9
+# Title: Implement extra features (optional)
+# Status: pending
+# Dependencies: 6, 7
+# Priority: low
+# Description: For higher grade: (1) Auto-detect if sinogram is 180° or 360°, (2) Auto-detect if sensor images are stacked horizontally or vertically, (3) Implement additional filter methods for FBP.
+# Details:
+
+
+# Test Strategy:
+

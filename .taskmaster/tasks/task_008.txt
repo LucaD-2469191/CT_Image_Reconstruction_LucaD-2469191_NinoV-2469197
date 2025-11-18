@@ -1,0 +1,11 @@
+# Task ID: 8
+# Title: Conduct sinogram generation experiments
+# Status: pending
+# Dependencies: 5, 6
+# Priority: medium
+# Description: Test sinogram generation with custom images. Analyze: (1) impact of number of angles on reconstruction quality, (2) possibility of exact reconstruction, (3) application to photos. Document observations for report.
+# Details:
+
+
+# Test Strategy:
+

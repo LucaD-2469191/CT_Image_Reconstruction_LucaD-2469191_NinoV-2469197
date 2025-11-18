@@ -1,0 +1,11 @@
+# Task ID: 7
+# Title: Test with divergent projection data
+# Status: pending
+# Dependencies: 4, 6
+# Priority: high
+# Description: Test Rebinning algorithm with provided divergent projection sinograms (lotus_divergent, walnut_divergent). Use rebinned output with CTSlice and CTRadon. Compare reconstruction quality before and after rebinning.
+# Details:
+
+
+# Test Strategy:
+

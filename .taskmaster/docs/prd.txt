@@ -1,0 +1,150 @@
+CT Image Reconstruction - Product Requirements Document
+
+PROJECT OVERVIEW
+================
+Project Title: CT Image Reconstruction
+Deadline: January 22, 2026, 23:59
+Weight: 34% of exam grade
+Team Size: 2 persons
+Language: Python
+
+OBJECTIVE
+=========
+Gain practical experience with Image Processing and understand the theory of Computed Tomography (CT) reconstruction techniques. Students will implement methods to reconstruct images from CT scan data.
+
+TECHNICAL BACKGROUND
+====================
+CT scanning calculates slices of an object based on a large set of X-ray images. The amount of absorbed X-rays depends on material density. CT image reconstruction is achieved by rotating the X-ray source and detector around the object, capturing images from different angles. This results in a sinogram for each CT slice. A sinogram can be viewed as the result of a Radon transformation, which projects an image onto a line defined by rotation angle θ.
+
+CORE REQUIREMENTS
+=================
+
+REQUIREMENT 1: Direct Fourier Reconstruction (DFR)
+---------------------------------------------------
+Implement a CT reconstruction method from sinogram based on Fourier Transform.
+
+Principles:
+- Uses the Fourier Slice Theorem
+- The theorem states that the inverse Fourier transform of a 1D slice through the origin of the frequency domain of a 2D image corresponds to a parallel projection of that image in image space
+- Since a sinogram represents a series of parallel projections at different angles, it must be used with the theorem to reconstruct the frequency domain of the slice
+
+Function Specification:
+- Function name: CTSlice
+- Inputs: sinogram, angle range parameter (typically 180° or 360°)
+- Output: reconstructed CT slice
+
+Technical Requirements:
+- When computing Fast Fourier Transform (FFT), phase information must be kept correctly
+- Recommended calculations in Python:
+  * freq = fftshift(fft(ifftshift(image))) for FFT
+  * image = fftshift(ifft(ifftshift(freq))) for inverse FFT
+- NUFFT methods do not need to be implemented
+- Works only for parallel projection
+
+REQUIREMENT 2: Filtered Backprojection (FBP)
+---------------------------------------------
+Implement a second CT reconstruction method from sinogram.
+
+Principles:
+- Basic backprojection algorithm projects each 1D parallel projection in the sinogram back onto the 2D target image, leading to blurry reconstruction
+- A filter must be applied to the sinogram BEFORE backprojection is performed to remove this blurriness
+
+Function Specification:
+- Function name: CTRadon
+- Inputs: sinogram, angle range parameter (typically 180° or 360°)
+- Output: reconstructed CT slice
+
+Technical Requirements:
+- Functions like getRotationMatrix2D and warpAffine from OpenCV may be used to rotate a 1D parallel deprojection
+- The functionality of skimage's iradon may ONLY be used to compare results, not in the reconstruction code itself
+- Works only for parallel projection
+
+REQUIREMENT 3: Rebinning
+-------------------------
+Implement a rebinning algorithm to make sinograms captured with divergent projection (fan-beam) usable for the above reconstruction algorithms.
+
+Problem:
+- DFR and FBP methods work exclusively on sinograms with parallel projection
+- In practice, divergent projection is often used, where rays emanate from one point
+
+Solution:
+- Rebinning algorithm is necessary to undistort the sinogram from divergent projection so it can be input for parallel projection algorithms
+
+Function Specification:
+- Function name: Rebinning
+- Inputs: sinogram, parameters (FOD, FDD, sensor width, center offset) defining the divergent fan-beam projection
+- Output: rebinned sinogram
+
+Technical Requirements:
+- Account for the fact that in image coordinate systems, the positive Y-axis typically points downward
+
+REQUIREMENT 4: Sinogram Generation
+-----------------------------------
+Implement a method to generate sinograms from arbitrary images.
+
+Report Requirements:
+Students must describe observations when recreating images from generated sinograms, including:
+- Impact of number of angles on reconstruction
+- Possibility of obtaining exact reconstruction
+- Possibility of applying sinogram generation and image reconstruction to a photo
+
+TECHNICAL CONSTRAINTS
+=====================
+
+Programming Language and Tools:
+- Python (recommended based on function references)
+- Allowed: scipy.ndimage.map_coordinates from scipy package
+- Required: FFT/IFFT functions must contain fftshift and ifftshift steps
+- OpenCV functions (getRotationMatrix2D, warpAffine) may be used
+- skimage's iradon may only be used for comparison, not in implementation
+
+Input Data:
+- Two types provided: parallel projection sinograms and divergent projection sinograms
+- Required parameters for divergent projection described in accompanying documents
+- Angle range: some sinograms span full 360° rotation, others only 180°
+- Both cases provide sufficient data for object reconstruction
+
+DELIVERABLES
+============
+
+Submission Format:
+Compressed archive (.zip) with three subdirectories:
+
+1. src/ directory:
+   - Contains Python source code and input data
+   - Code must be easily executable
+
+2. doc/ directory:
+   - Contains short report (preferably PDF format)
+   - Approximately 5 pages describing:
+     * Content of src directory
+     * Program usage instructions
+     * Relevant information for assessment
+
+3. results/ directory:
+   - Contains various input images and corresponding output images
+
+EVALUATION CRITERIA
+===================
+
+Base Score:
+- Minimal working implementation of complete exercise: 7/10
+
+Demonstration:
+- Each group must demonstrate project on exam day (approximately 15 minutes)
+- Instructor may ask to run program on alternative datasets
+- Instructor may ask questions about solutions and subject matter
+
+Extra Functionality (for higher scores):
+- Detecting whether sinogram is 180° or 360°
+- Detecting whether sensor images are stacked horizontally or vertically in sinogram
+- Additional filter methods
+
+INDEPENDENCE REQUIREMENT
+========================
+Project must be executed independently from other groups. Using code from other groups or allowing own code to be used is only permitted after prior notification to assistants and compensation through alternative work.
+
+ANALOGY FOR CT RECONSTRUCTION
+==============================
+CT Image Reconstruction is comparable to reconstructing a three-dimensional object by making two-dimensional shadows of it. If you walk around an object and take a photo of the shadow from each angle (these are the 'projections' or 'sinograms'), you use all that 2D information together to logically deduce what the original 3D object (the CT slice) must have looked like. Direct Fourier Reconstruction and Filtered Backprojection are two mathematical 'recipes' to convert those shadows into the actual object.
+

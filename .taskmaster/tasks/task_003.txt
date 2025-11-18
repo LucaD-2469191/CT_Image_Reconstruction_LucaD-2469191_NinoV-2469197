@@ -1,0 +1,11 @@
+# Task ID: 3
+# Title: Implement CTRadon - Filtered Backprojection
+# Status: pending
+# Dependencies: 1
+# Priority: high
+# Description: Implement Filtered Backprojection (FBP) method. Apply filter to sinogram before backprojection to remove blurriness. Function takes sinogram and angle range as input. May use OpenCV's getRotationMatrix2D and warpAffine. Cannot use skimage's iradon in implementation (only for comparison). Works only for parallel projection.
+# Details:
+
+
+# Test Strategy:
+

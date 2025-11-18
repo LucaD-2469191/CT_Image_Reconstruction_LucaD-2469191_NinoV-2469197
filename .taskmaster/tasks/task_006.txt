@@ -1,0 +1,11 @@
+# Task ID: 6
+# Title: Test with parallel projection data
+# Status: pending
+# Dependencies: 2, 3
+# Priority: high
+# Description: Test CTSlice and CTRadon implementations with provided parallel projection sinograms (SheppLoganPhantom, Lotus, Walnut). Compare results between both methods. Test with both 180° and 360° angle ranges.
+# Details:
+
+
+# Test Strategy:
+

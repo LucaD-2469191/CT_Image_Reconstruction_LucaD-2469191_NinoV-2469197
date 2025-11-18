@@ -1,0 +1,42 @@
+De volgende algoritmes en methoden worden in de bronnen genoemd:
+
+**Reconstructiemethoden en Algoritmen:**
+
+*   **Gefilterde Backprojectie (Filtered Backprojection - FBP/FB)**
+*   **Directe Fourier Reconstructie** (ook bekend als Direct Fourier Reconstruction)
+*   **Backprojectie** (Backprojection, de naïeve methode)
+*   **Iteratieve reconstructiemethoden**
+*   **Algebraïsche Reconstructie Techniek (Algebraic Reconstruction Technique - ART)**
+*   **Gelijktijdige Iteratieve Reconstructie Techniek (Simultaneous Iterative Reconstruction Technique - SIRT)**
+*   **FBP-gebaseerde Directe Fourier methoden**
+
+**Transformaties en Stellingen:**
+
+*   **Radon Transformatie**
+*   **Fourier Transformatie**
+*   **Discrete Fourier Transformatie (DFT)**
+*   **Inverse Discrete Fourier Transformatie (IDFT)**
+*   **Vierkante Fourier Transformatie (Fast Fourier Transform - FFT)**
+*   **Inverse Vierkante Fourier Transformatie (IFFT)**
+*   **2D Inverse Fourier Transformatie (2D IFFT)**
+*   **Niet-Uniforme Vierkante Fourier Transformatie (Non-Uniform Fast Fourier Transform - NUFFT)**
+*   **Fourier Slice Stelling (Fourier Slice Theorem)**
+
+**Technieken en Filters:**
+
+*   **Rebinning** (een algoritme om sinogrammen van divergente projectie om te zetten naar parallelle projectie)
+*   **RAM-LAK filter**
+*   **Shepp-Logan venster**
+*   **Zero-padding** (Nul-vulling)
+*   **Peripadding**
+*   **Polar Interpolated Grid (PIG)**
+*   **Polar Square Grid (PSG)**
+*   **Ringram**
+*   **Zero-padding** (wordt genoemd als een techniek)
+*   **Peripadding** (genoemd als een techniek)
+*   **Interpolatie** (zoals in de Fourier-ruimte)
+*   **Nyquist-bemonsteringstheorema** (Nyquist sampling theorem)
+*   **`fftshift`** en **`ifftshift`** (functies die gebruikt worden bij FFT/IFFT)
+*   **`map_coordinates`** (een functie van het scipy-pakket)
+*   **`getRotationMatrix2D`** en **`warpAffine`** (functies van OpenCV)
+*   **`iradon`** (een functie van skimage die ter vergelijking kan worden gebruikt)
