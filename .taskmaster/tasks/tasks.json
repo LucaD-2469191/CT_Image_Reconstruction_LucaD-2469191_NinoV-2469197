@@ -23,7 +23,40 @@
           1
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Fourier Slice Theorem",
+            "description": "Develop the core algorithm using the Fourier Slice Theorem for CT reconstruction.",
+            "dependencies": [],
+            "details": "Use FFT to transform the sinogram, apply the Fourier Slice Theorem, and ensure correct phase information with fftshift/ifftshift.",
+            "status": "pending",
+            "testStrategy": "Verify with known analytical solutions."
+          },
+          {
+            "id": 2,
+            "title": "Handle Input/Output for CTSlice Function",
+            "description": "Design the function interface to accept sinogram and angle range, and output the reconstructed CT slice.",
+            "dependencies": [
+              1
+            ],
+            "details": "Ensure the function accepts inputs for sinogram and angle range (180° or 360°) and outputs the reconstructed image.",
+            "status": "pending",
+            "testStrategy": "Test with various input formats and validate output structure."
+          },
+          {
+            "id": 3,
+            "title": "Test CTSlice with Sample Data",
+            "description": "Validate the implementation using sample sinograms and compare results with expected outputs.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Use sample sinograms to test the reconstruction accuracy and performance of the CTSlice function.",
+            "status": "pending",
+            "testStrategy": "Compare reconstructed slices with ground truth images."
+          }
+        ]
       },
       {
         "id": 3,
@@ -36,7 +69,53 @@
           1
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Sinogram Filtering Process",
+            "description": "Develop the filtering process to apply to the sinogram before backprojection.",
+            "dependencies": [],
+            "details": "Use a suitable filter to process the sinogram data to reduce blurriness. Ensure compatibility with parallel projection.",
+            "status": "pending",
+            "testStrategy": "Verify filter effectiveness by comparing filtered and unfiltered outputs."
+          },
+          {
+            "id": 2,
+            "title": "Develop Backprojection Algorithm",
+            "description": "Create the backprojection algorithm to reconstruct the image from the filtered sinogram.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement the backprojection using OpenCV's getRotationMatrix2D and warpAffine. Avoid using skimage's iradon.",
+            "status": "pending",
+            "testStrategy": "Compare reconstructed images with skimage's iradon results for accuracy."
+          },
+          {
+            "id": 3,
+            "title": "Handle Input and Output for FBP Function",
+            "description": "Design the input and output handling for the Filtered Backprojection function.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Ensure the function accepts sinogram and angle range as inputs and outputs the reconstructed image.",
+            "status": "pending",
+            "testStrategy": "Test with various input sizes and angle ranges to ensure robustness."
+          },
+          {
+            "id": 4,
+            "title": "Test and Validate FBP Implementation",
+            "description": "Conduct thorough testing and validation of the entire Filtered Backprojection implementation.",
+            "dependencies": [
+              1,
+              2,
+              3
+            ],
+            "details": "Develop test cases to validate the accuracy and performance of the FBP method. Use skimage's iradon for comparison.",
+            "status": "pending",
+            "testStrategy": "Perform unit tests and compare results with known benchmarks."
+          }
+        ]
       },
       {
         "id": 4,
@@ -50,7 +129,51 @@
           3
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Research Rebinning Process",
+            "description": "Understand the mathematical and computational aspects of rebinning from fan-beam to parallel-beam sinograms.",
+            "dependencies": [],
+            "details": "Study relevant literature and existing algorithms for rebinning. Focus on the transformation of coordinates and handling of input parameters like FOD, FDD, sensor width, and center offset.",
+            "status": "pending",
+            "testStrategy": null
+          },
+          {
+            "id": 2,
+            "title": "Implement Core Rebinning Algorithm",
+            "description": "Develop the core algorithm to convert fan-beam sinograms to parallel-beam sinograms.",
+            "dependencies": [
+              1
+            ],
+            "details": "Use insights from research to implement the algorithm. Ensure the Y-axis is correctly oriented downward in the image coordinate system. Validate the output against expected parallel-beam sinograms.",
+            "status": "pending",
+            "testStrategy": "Compare output with known parallel-beam sinograms and validate using CTSlice and CTRadon."
+          },
+          {
+            "id": 3,
+            "title": "Handle Edge Cases in Rebinning",
+            "description": "Identify and implement solutions for potential edge cases in the rebinning process.",
+            "dependencies": [
+              2
+            ],
+            "details": "Consider scenarios such as extreme values of FOD, FDD, and center offset. Ensure robustness against unusual input configurations.",
+            "status": "pending",
+            "testStrategy": "Test with edge case inputs and verify stability and correctness of the output."
+          },
+          {
+            "id": 4,
+            "title": "Develop Testing Suite for Rebinning Algorithm",
+            "description": "Create a comprehensive testing suite to validate the rebinning algorithm.",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Design unit tests and integration tests to cover typical and edge case scenarios. Ensure compatibility with CTSlice and CTRadon outputs.",
+            "status": "pending",
+            "testStrategy": "Automate tests to run against a variety of input sinograms and parameters, ensuring consistent and correct rebinning."
+          }
+        ]
       },
       {
         "id": 5,
@@ -119,7 +242,35 @@
           7
         ],
         "priority": "low",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Auto-Detection for Sinogram Angle",
+            "description": "Develop a feature to auto-detect if a sinogram is 180° or 360°.",
+            "dependencies": [],
+            "details": "Create an algorithm to analyze sinogram data and determine the angle range. Use statistical methods to differentiate between 180° and 360° sinograms.",
+            "status": "pending",
+            "testStrategy": "Test with known 180° and 360° sinograms to verify accuracy."
+          },
+          {
+            "id": 2,
+            "title": "Implement Auto-Detection for Sensor Image Orientation",
+            "description": "Develop a feature to auto-detect if sensor images are stacked horizontally or vertically.",
+            "dependencies": [],
+            "details": "Analyze image metadata and pixel patterns to determine orientation. Implement logic to handle both horizontal and vertical stacking.",
+            "status": "pending",
+            "testStrategy": "Test with sample images in both orientations to ensure correct detection."
+          },
+          {
+            "id": 3,
+            "title": "Develop Additional Filter Methods for FBP",
+            "description": "Implement new filter methods for the Filtered Backprojection (FBP) process.",
+            "dependencies": [],
+            "details": "Research and implement additional filters such as Hamming and Hann. Integrate these filters into the existing FBP workflow.",
+            "status": "pending",
+            "testStrategy": "Compare reconstruction quality using different filters on sample sinograms."
+          }
+        ]
       },
       {
         "id": 10,

@@ -9,3 +9,29 @@
 
 # Test Strategy:
 
+
+# Subtasks:
+## 1. Research Rebinning Process [pending]
+### Dependencies: None
+### Description: Understand the mathematical and computational aspects of rebinning from fan-beam to parallel-beam sinograms.
+### Details:
+Study relevant literature and existing algorithms for rebinning. Focus on the transformation of coordinates and handling of input parameters like FOD, FDD, sensor width, and center offset.
+
+## 2. Implement Core Rebinning Algorithm [pending]
+### Dependencies: 4.1
+### Description: Develop the core algorithm to convert fan-beam sinograms to parallel-beam sinograms.
+### Details:
+Use insights from research to implement the algorithm. Ensure the Y-axis is correctly oriented downward in the image coordinate system. Validate the output against expected parallel-beam sinograms.
+
+## 3. Handle Edge Cases in Rebinning [pending]
+### Dependencies: 4.2
+### Description: Identify and implement solutions for potential edge cases in the rebinning process.
+### Details:
+Consider scenarios such as extreme values of FOD, FDD, and center offset. Ensure robustness against unusual input configurations.
+
+## 4. Develop Testing Suite for Rebinning Algorithm [pending]
+### Dependencies: 4.2, 4.3
+### Description: Create a comprehensive testing suite to validate the rebinning algorithm.
+### Details:
+Design unit tests and integration tests to cover typical and edge case scenarios. Ensure compatibility with CTSlice and CTRadon outputs.
+

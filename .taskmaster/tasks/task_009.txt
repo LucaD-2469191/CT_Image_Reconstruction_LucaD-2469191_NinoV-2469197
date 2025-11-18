@@ -9,3 +9,23 @@
 
 # Test Strategy:
 
+
+# Subtasks:
+## 1. Implement Auto-Detection for Sinogram Angle [pending]
+### Dependencies: None
+### Description: Develop a feature to auto-detect if a sinogram is 180° or 360°.
+### Details:
+Create an algorithm to analyze sinogram data and determine the angle range. Use statistical methods to differentiate between 180° and 360° sinograms.
+
+## 2. Implement Auto-Detection for Sensor Image Orientation [pending]
+### Dependencies: None
+### Description: Develop a feature to auto-detect if sensor images are stacked horizontally or vertically.
+### Details:
+Analyze image metadata and pixel patterns to determine orientation. Implement logic to handle both horizontal and vertical stacking.
+
+## 3. Develop Additional Filter Methods for FBP [pending]
+### Dependencies: None
+### Description: Implement new filter methods for the Filtered Backprojection (FBP) process.
+### Details:
+Research and implement additional filters such as Hamming and Hann. Integrate these filters into the existing FBP workflow.
+

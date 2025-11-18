@@ -9,3 +9,29 @@
 
 # Test Strategy:
 
+
+# Subtasks:
+## 1. Implement Sinogram Filtering Process [pending]
+### Dependencies: None
+### Description: Develop the filtering process to apply to the sinogram before backprojection.
+### Details:
+Use a suitable filter to process the sinogram data to reduce blurriness. Ensure compatibility with parallel projection.
+
+## 2. Develop Backprojection Algorithm [pending]
+### Dependencies: 3.1
+### Description: Create the backprojection algorithm to reconstruct the image from the filtered sinogram.
+### Details:
+Implement the backprojection using OpenCV's getRotationMatrix2D and warpAffine. Avoid using skimage's iradon.
+
+## 3. Handle Input and Output for FBP Function [pending]
+### Dependencies: 3.1, 3.2
+### Description: Design the input and output handling for the Filtered Backprojection function.
+### Details:
+Ensure the function accepts sinogram and angle range as inputs and outputs the reconstructed image.
+
+## 4. Test and Validate FBP Implementation [pending]
+### Dependencies: 3.1, 3.2, 3.3
+### Description: Conduct thorough testing and validation of the entire Filtered Backprojection implementation.
+### Details:
+Develop test cases to validate the accuracy and performance of the FBP method. Use skimage's iradon for comparison.
+

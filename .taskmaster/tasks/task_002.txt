@@ -9,3 +9,23 @@
 
 # Test Strategy:
 
+
+# Subtasks:
+## 1. Implement Fourier Slice Theorem [pending]
+### Dependencies: None
+### Description: Develop the core algorithm using the Fourier Slice Theorem for CT reconstruction.
+### Details:
+Use FFT to transform the sinogram, apply the Fourier Slice Theorem, and ensure correct phase information with fftshift/ifftshift.
+
+## 2. Handle Input/Output for CTSlice Function [pending]
+### Dependencies: 2.1
+### Description: Design the function interface to accept sinogram and angle range, and output the reconstructed CT slice.
+### Details:
+Ensure the function accepts inputs for sinogram and angle range (180° or 360°) and outputs the reconstructed image.
+
+## 3. Test CTSlice with Sample Data [pending]
+### Dependencies: 2.1, 2.2
+### Description: Validate the implementation using sample sinograms and compare results with expected outputs.
+### Details:
+Use sample sinograms to test the reconstruction accuracy and performance of the CTSlice function.
+
