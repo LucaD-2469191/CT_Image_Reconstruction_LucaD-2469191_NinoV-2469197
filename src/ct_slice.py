@@ -66,6 +66,178 @@ def _validate_inputs(sinogram, angle_range):
     return sinogram, angle_range, num_angles, num_detectors
 
 
+def _infer_angle_range(num_angles):
+    """
+    Heuristic to decide whether a sinogram covers 180° or 360°.
+
+    Parameters
+    ----------
+    num_angles : int
+        Number of projection angles (rows) in the sinogram.
+
+    Returns
+    -------
+    float
+        180.0 or 360.0 depending on the closest match.
+    """
+    if num_angles <= 0:
+        raise ValueError("num_angles must be positive.")
+
+    if abs(num_angles - 180) <= abs(num_angles - 360):
+        return 180.0
+    return 360.0
+
+
+def fanbeam_to_parallel(
+    sinogram,
+    fod,
+    fdd,
+    sensor_width,
+    *,
+    center_offset=0.0,
+    angle_range=None,
+    output_num_angles=None,
+    output_num_detectors=None,
+    y_axis_down=True,
+    return_grids=False,
+):
+    """
+    Convert a divergent (fan-beam) sinogram to a parallel-beam sinogram.
+
+    Parameters
+    ----------
+    sinogram : numpy.ndarray
+        2D fan-beam sinogram with shape (num_angles, num_detectors). Each row
+        corresponds to a source rotation angle β (measured clockwise if the image
+        originates from standard image coordinates where Y points down).
+    fod : float
+        Focus-to-object distance (source to iso-center) in the same units as
+        `sensor_width`.
+    fdd : float
+        Focus-to-detector distance (source to detector array) in the same units
+        as `sensor_width`.
+    sensor_width : float
+        Physical width of a single detector element (detector pitch).
+    center_offset : float, optional
+        Offset of the detector center from the iso-center expressed in detector
+        bins. Positive values shift the detector array to the right (increasing
+        column index). Default is 0.0.
+    angle_range : float, optional
+        Total angular coverage in degrees. If None, the value is inferred from
+        the number of rows (closest to either 180° or 360°).
+    output_num_angles : int, optional
+        Number of projection angles in the rebinned parallel sinogram. Defaults
+        to the input number of angles.
+    output_num_detectors : int, optional
+        Number of detectors in the rebinned sinogram. Defaults to the input
+        number of detectors.
+    y_axis_down : bool, optional
+        Set to True when the input sinogram comes from an image where the Y-axis
+        grows downward (e.g., PNGs loaded with OpenCV). This is the typical case
+        for provided datasets and ensures that β indexing matches the clockwise
+        acquisition order.
+    return_grids : bool, optional
+        If True, the function returns a tuple `(sinogram, theta, s)` where
+        `theta` are the rebinned projection angles (radians) and `s` the parallel
+        detector coordinates (same distance units as `sensor_width`). Otherwise
+        only the rebinned sinogram is returned.
+
+    Returns
+    -------
+    numpy.ndarray or tuple
+        Rebinned parallel-beam sinogram usable by CTSlice/CTRadon. If
+        `return_grids=True`, theta/s grids are returned alongside the sinogram.
+
+    Raises
+    ------
+    ValueError
+        If input dimensions are invalid or if any geometric parameter is
+        non-positive.
+    """
+
+    sinogram = np.asarray(sinogram, dtype=np.float64)
+    if sinogram.ndim != 2:
+        raise ValueError(f"Fan-beam sinogram must be 2D, got shape {sinogram.shape}")
+
+    num_angles, num_detectors = sinogram.shape
+    if num_angles < 2 or num_detectors < 2:
+        raise ValueError("Fan-beam sinogram must have at least 2 angles and 2 detectors.")
+
+    for name, value in (("fod", fod), ("fdd", fdd), ("sensor_width", sensor_width)):
+        if not np.isfinite(value) or value <= 0:
+            raise ValueError(f"{name} must be positive, got {value}")
+    if not np.isfinite(center_offset):
+        raise ValueError(f"center_offset must be finite, got {center_offset}")
+
+    if angle_range is None:
+        angle_range = _infer_angle_range(num_angles)
+    angle_range = float(angle_range)
+    if angle_range <= 0 or angle_range > 360:
+        raise ValueError(f"angle_range must be in (0, 360], got {angle_range}")
+
+    angle_range_rad = np.deg2rad(angle_range)
+
+    out_angles = int(output_num_angles or num_angles)
+    out_detectors = int(output_num_detectors or num_detectors)
+    if out_angles < 2 or out_detectors < 2:
+        raise ValueError("output_num_angles and output_num_detectors must be >= 2.")
+
+    theta = np.linspace(0.0, angle_range_rad, out_angles, endpoint=False)
+
+    detector_indices = np.arange(num_detectors, dtype=np.float64)
+    detector_center = (num_detectors - 1) / 2.0
+    detector_positions = (detector_indices - detector_center - center_offset) * sensor_width
+    min_gamma = np.arctan2(np.min(detector_positions), fdd)
+    max_gamma = np.arctan2(np.max(detector_positions), fdd)
+    if np.isclose(min_gamma, max_gamma):
+        raise ValueError("Detector layout must span a non-zero angle.")
+
+    s_min = fod * np.sin(min_gamma)
+    s_max = fod * np.sin(max_gamma)
+    if s_min >= s_max:
+        raise ValueError("Invalid detector geometry: computed s_min >= s_max.")
+
+    s = np.linspace(s_min, s_max, out_detectors)
+    sin_bounds = (np.sin(min_gamma), np.sin(max_gamma))
+    clip_low = max(-0.999999, min(sin_bounds) - 1e-9)
+    clip_high = min(0.999999, max(sin_bounds) + 1e-9)
+    gamma = np.arcsin(np.clip(s / fod, clip_low, clip_high))
+
+    theta_grid = theta[:, None]
+    gamma_grid = gamma[None, :]
+    beta = np.mod(theta_grid - gamma_grid, angle_range_rad)
+
+    beta_fraction = beta / angle_range_rad
+    if y_axis_down:
+        beta_fraction = np.mod(1.0 - beta_fraction, 1.0)
+    beta_fraction = np.clip(beta_fraction, 0.0, 1.0 - np.finfo(np.float64).eps)
+    beta_idx = beta_fraction * num_angles
+
+    # Allow interpolation to use the duplicated row at the end for wrap-around interpolation.
+    sinogram_periodic = np.vstack([sinogram, sinogram[:1]])
+    max_beta_index = sinogram_periodic.shape[0] - 1
+    beta_idx = np.clip(beta_idx, 0.0, max_beta_index)
+
+    detector_idx_vector = (fdd * np.tan(gamma) / sensor_width) + detector_center + center_offset
+    detector_idx = np.broadcast_to(detector_idx_vector, beta_idx.shape)
+    valid_detector_mask = (detector_idx >= 0.0) & (detector_idx <= num_detectors - 1)
+
+    coords = np.array([beta_idx.ravel(), detector_idx.ravel()])
+    rebinned = map_coordinates(
+        sinogram_periodic,
+        coords,
+        order=1,
+        mode="nearest",
+    ).reshape(beta_idx.shape)
+
+    if not np.all(valid_detector_mask):
+        rebinned[~valid_detector_mask] = 0.0
+
+    if return_grids:
+        return rebinned, theta, s
+    return rebinned
+
+
 def CTSlice(sinogram, angle_range=180):
     """
     Reconstruct a CT slice from a sinogram using Direct Fourier Reconstruction.
@@ -357,6 +529,14 @@ def CTRadon(
     reconstruction *= np.deg2rad(angle_range) / (2 * num_angles)
 
     return reconstruction
+
+
+__all__ = [
+    "CTSlice",
+    "CTSlice_gridded",
+    "CTRadon",
+    "fanbeam_to_parallel",
+]
 
 
 if __name__ == "__main__":

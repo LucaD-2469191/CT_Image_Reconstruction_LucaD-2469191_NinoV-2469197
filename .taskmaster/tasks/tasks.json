@@ -144,7 +144,7 @@
         "description": "Implement rebinning to convert divergent projection (fan-beam) sinograms to parallel projection sinograms. Function takes sinogram and parameters (FOD, FDD, sensor width, center offset) as input. Must account for Y-axis pointing downward in image coordinate systems. Output is rebinned sinogram usable by CTSlice and CTRadon.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "2",
           "3"
@@ -156,10 +156,11 @@
             "title": "Research Rebinning Process",
             "description": "Understand the mathematical and computational aspects of rebinning from fan-beam to parallel-beam sinograms.",
             "dependencies": [],
-            "details": "Study relevant literature and existing algorithms for rebinning. Focus on the transformation of coordinates and handling of input parameters like FOD, FDD, sensor width, and center offset.",
-            "status": "pending",
+            "details": "Study relevant literature and existing algorithms for rebinning. Focus on the transformation of coordinates and handling of input parameters like FOD, FDD, sensor width, and center offset.\n<info added on 2025-12-02T11:26:55.821Z>\nCompleted initial research on fan-to-parallel rebinning.\n\nKey formulas & constraints:\n- Use short-scan geometry relationships θ = β + γ and s = FOD * sin(γ).\n- For flat detectors convert pixel offsets to angles via γ = arctan((det_idx - center_offset)*sensor_width / FDD) and invert using det_idx = center_offset + (FDD / sensor_width) * tan(γ).\n- Parallel detector spacing should span s_max = FOD * sin(max|γ|) where max|γ| derives from outermost detectors.\n- When ingesting PNG sinograms (y-axis down) map mathematical CCW angles back to row indices with index = (angle_range - θ)/Δθ to avoid vertical mirroring.\n- Linear interpolation (scipy.ndimage.map_coordinates) works well for resampling β/γ to uniform θ/s grids, but mask values that fall outside valid detector/angle ranges.\n\nNext: implement the conversion utility and expose API usable by CTSlice/CTRadon.\n</info added on 2025-12-02T11:26:55.821Z>",
+            "status": "done",
             "testStrategy": null,
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-12-02T11:26:59.288Z"
           },
           {
             "id": 2,
@@ -168,10 +169,11 @@
             "dependencies": [
               1
             ],
-            "details": "Use insights from research to implement the algorithm. Ensure the Y-axis is correctly oriented downward in the image coordinate system. Validate the output against expected parallel-beam sinograms.",
-            "status": "pending",
+            "details": "Use insights from research to implement the algorithm. Ensure the Y-axis is correctly oriented downward in the image coordinate system. Validate the output against expected parallel-beam sinograms.\n<info added on 2025-12-02T11:28:17.920Z>\nImplementation plan for the core rebin function:\n\n- Add a reusable helper inside `src/ct_slice.py` to infer the angular range (defaulting to 360° when rows > 270). Use it for the rebinning function so callers can omit `angle_range` when the metadata is unknown.\n- Implement `fanbeam_to_parallel` in `src/ct_slice.py` (next to CTSlice utilities). Inputs: sinogram array, `fod`, `fdd`, `sensor_width`, optional `center_offset`, `angle_range`, and overrides for output angular/detector counts plus a `y_axis_down` flag.\n- Steps inside the function:\n  1. Validate numeric parameters and convert sinogram to `float64`.\n  2. Build continuous θ grid matching the desired parallel sinogram resolution.\n  3. Compute detector positions (`u`) using `sensor_width` and `center_offset`, derive max fan angle γ and max reachable parallel coordinate `s_max = fod * sin(max|γ|)`.\n  4. Define evenly spaced parallel detector coordinates `s` within ±`s_max` and invert to γ via `arcsin`.\n  5. Map desired (θ, s) pairs back to fan-beam indices using β = θ - γ, convert to array indices while compensating for image-style Y-down orientation by using `(angle_range - β)/Δβ` when `y_axis_down=True`.\n  6. Convert γ to detector indices with `(FDD/sensor_width)*tan(γ) + center_index + center_offset`.\n  7. Sample the original data via `scipy.ndimage.map_coordinates` (bilinear), masking coordinates that fall outside valid angle/detector domains.\n  8. Return rebinned array plus metadata (θ grid, s grid) to make downstream validation easier.\n- Document usage in the docstring and mention how to feed the rebinned array to `CTSlice`/`CTRadon`.\n\nAfter the core function works, a thin wrapper can expose only the rebinned sinogram for callers that do not need grids.\n</info added on 2025-12-02T11:28:17.920Z>\n<info added on 2025-12-02T11:35:38.082Z>\nImplemented `fanbeam_to_parallel` inside `src/ct_slice.py` with full input validation for geometry parameters, detector-aware physical grids, fast bilinear interpolation with periodic wrapping, and optional metadata return. Exported the function via `__all__` for cleaner imports. Empirically validated on analytic fan-beam data with round-trip error < 5e-5 and via pytest.\n</info added on 2025-12-02T11:35:38.082Z>",
+            "status": "done",
             "testStrategy": "Compare output with known parallel-beam sinograms and validate using CTSlice and CTRadon.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-12-02T11:35:41.379Z"
           },
           {
             "id": 3,
@@ -180,10 +182,11 @@
             "dependencies": [
               2
             ],
-            "details": "Consider scenarios such as extreme values of FOD, FDD, and center offset. Ensure robustness against unusual input configurations.",
-            "status": "pending",
+            "details": "Consider scenarios such as extreme values of FOD, FDD, and center offset. Ensure robustness against unusual input configurations.\n<info added on 2025-12-02T11:35:53.758Z>\nAccepts asymmetric detector layouts and non-zero `center_offset` by deriving per-side s-ranges and masking only per-ray indices that fall outside the native detector footprint. Robust numeric clipping avoids invalid arcsin inputs when FOD/FDD combinations push angles near ±90°. Validates requested output dimensions and geometry parameters, raising descriptive errors for degenerate detectors or non-positive spacing. `y_axis_down` flag keeps clockwise-acquired PNG sinograms aligned without forcing callers to flip their data. Added optional metadata so downstream tests can assert geometry without recomputing. Integration tests cover both analytic cases and a Shepp-Logan radon round-trip to ensure realistic edge handling.\n</info added on 2025-12-02T11:35:53.758Z>",
+            "status": "done",
             "testStrategy": "Test with edge case inputs and verify stability and correctness of the output.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-12-02T11:35:56.854Z"
           },
           {
             "id": 4,
@@ -193,15 +196,17 @@
               2,
               3
             ],
-            "details": "Design unit tests and integration tests to cover typical and edge case scenarios. Ensure compatibility with CTSlice and CTRadon outputs.",
-            "status": "pending",
+            "details": "Design unit tests and integration tests to cover typical and edge case scenarios. Ensure compatibility with CTSlice and CTRadon outputs.\n<info added on 2025-12-02T11:36:06.078Z>\nAdded pytest coverage in `tests/test_rebin.py`:\n- `test_fanbeam_to_parallel_recovers_analytic_function` synthesizes an analytic fan-beam sinogram with non-zero center offset and verifies the rebinned output against the closed-form function (max error < 5e-5).\n- `test_fanbeam_to_parallel_roundtrip_radon_sinogram` generates a Shepp-Logan parallel sinogram with `skimage.radon`, warps it into fan-beam geometry, rebins, and compares the normalized arrays (MSE < 5e-3).\n\nBoth tests run as part of the default `pytest` suite (see CI log) ensuring regressions get caught automatically.\n</info added on 2025-12-02T11:36:06.078Z>",
+            "status": "done",
             "testStrategy": "Automate tests to run against a variety of input sinograms and parameters, ensuring consistent and correct rebinning.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-12-02T11:36:08.721Z"
           }
         ],
         "complexity": 9,
         "recommendedSubtasks": 4,
-        "expansionPrompt": "Break down into understanding the rebinning process, implementing the algorithm, handling edge cases, and testing."
+        "expansionPrompt": "Break down into understanding the rebinning process, implementing the algorithm, handling edge cases, and testing.",
+        "updatedAt": "2025-12-02T11:36:08.721Z"
       },
       {
         "id": "5",
@@ -355,9 +360,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-02T11:15:53.889Z",
+      "lastModified": "2025-12-02T11:36:08.721Z",
       "taskCount": 11,
-      "completedCount": 3,
+      "completedCount": 4,
       "tags": [
         "master"
       ]
