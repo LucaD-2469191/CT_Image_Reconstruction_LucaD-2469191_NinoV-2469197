@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 import cv2
-from ct_slice import CTSlice
+from ct_slice import CTSlice, CTRadon
 
 
 def load_sinogram(filepath):
@@ -78,11 +78,12 @@ def validate_reconstruction(sinogram_path, angle_range=None, save_results=True, 
     # Perform reconstruction
     print("\nReconstructing...")
     reconstruction = CTSlice(sinogram, angle_range=angle_range)
+    reconstruction_fbp = CTRadon(sinogram, angle_range=angle_range)
     
-    print(f"Reconstruction shape: {reconstruction.shape}")
-    print(f"Reconstruction value range: [{reconstruction.min():.6f}, {reconstruction.max():.6f}]")
-    print(f"Reconstruction mean: {reconstruction.mean():.6f}")
-    print(f"Reconstruction std: {reconstruction.std():.6f}")
+    print(f"DFR Reconstruction shape: {reconstruction.shape}")
+    print(f"DFR value range: [{reconstruction.min():.6f}, {reconstruction.max():.6f}]")
+    print(f"DFR mean/std: {reconstruction.mean():.6f} / {reconstruction.std():.6f}")
+    print(f"FBP value range: [{reconstruction_fbp.min():.6f}, {reconstruction_fbp.max():.6f}]")
     
     # Calculate metrics
     results = {
@@ -95,11 +96,13 @@ def validate_reconstruction(sinogram_path, angle_range=None, save_results=True, 
         'recon_max': reconstruction.max(),
         'recon_mean': reconstruction.mean(),
         'recon_std': reconstruction.std(),
+        'fbp_min': reconstruction_fbp.min(),
+        'fbp_max': reconstruction_fbp.max(),
     }
     
     # Visualize and save
     if save_results:
-        fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+        fig, axes = plt.subplots(1, 3, figsize=(14, 4))
         
         # Sinogram
         im1 = axes[0].imshow(sinogram, cmap='gray', aspect='auto')
@@ -121,6 +124,16 @@ def validate_reconstruction(sinogram_path, angle_range=None, save_results=True, 
                          fontsize=9)
         axes[1].axis('off')
         plt.colorbar(im2, ax=axes[1], fraction=0.046, pad=0.04)
+
+        recon_fbp_display = reconstruction_fbp - reconstruction_fbp.min()
+        if recon_fbp_display.max() > 0:
+            recon_fbp_display = recon_fbp_display / recon_fbp_display.max()
+
+        im3 = axes[2].imshow(recon_fbp_display, cmap='gray')
+        axes[2].set_title(f'FBP Reconstruction\n[{reconstruction_fbp.min():.4f}, {reconstruction_fbp.max():.4f}]', 
+                         fontsize=9)
+        axes[2].axis('off')
+        plt.colorbar(im3, ax=axes[2], fraction=0.046, pad=0.04)
         
         plt.tight_layout(pad=1.0)
         
@@ -140,12 +153,17 @@ def validate_reconstruction(sinogram_path, angle_range=None, save_results=True, 
         recon_path = output_path.parent / f'{sino_path.stem}_reconstruction.png'
         cv2.imwrite(str(recon_path), recon_uint8)
         print(f"Saved reconstruction: {recon_path}")
+
+        recon_fbp_uint8 = (recon_fbp_display * 255).astype(np.uint8)
+        recon_fbp_path = output_path.parent / f'{sino_path.stem}_fbp_reconstruction.png'
+        cv2.imwrite(str(recon_fbp_path), recon_fbp_uint8)
+        print(f"Saved FBP reconstruction: {recon_fbp_path}")
     
     print(f"{'='*70}")
     return results
 
 
-def main(show_plots=False):
+def main(show_plots=True):
     """
     Run comprehensive validation on all available sinograms.
     

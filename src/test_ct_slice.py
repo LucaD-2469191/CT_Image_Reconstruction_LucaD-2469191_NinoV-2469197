@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 import cv2
-from ct_slice import CTSlice
+from ct_slice import CTSlice, CTRadon
 
 # Try to import skimage's iradon for comparison
 try:
@@ -32,7 +32,7 @@ def load_sinogram_image(filepath):
     return sinogram
 
 
-def test_sinogram(sinogram_path, angle_range=180, save_results=True):
+def run_sinogram_test(sinogram_path, angle_range=180, save_results=True):
     """
     Test CTSlice reconstruction on a single sinogram.
     
@@ -59,6 +59,11 @@ def test_sinogram(sinogram_path, angle_range=180, save_results=True):
     reconstruction_dfr = CTSlice(sinogram, angle_range=angle_range)
     print(f"Reconstruction shape: {reconstruction_dfr.shape}")
     print(f"Reconstruction value range: [{reconstruction_dfr.min():.4f}, {reconstruction_dfr.max():.4f}]")
+
+    print("\nTesting CTRadon (Filtered Backprojection)...")
+    reconstruction_fbp = CTRadon(sinogram, angle_range=angle_range)
+    print(f"Reconstruction shape: {reconstruction_fbp.shape}")
+    print(f"Reconstruction value range: [{reconstruction_fbp.min():.4f}, {reconstruction_fbp.max():.4f}]")
     
     # Compare with skimage's iradon if available
     reconstruction_skimage = None
@@ -73,7 +78,7 @@ def test_sinogram(sinogram_path, angle_range=180, save_results=True):
         print("\nSkipping skimage comparison (not installed)")
     
     # Visualize results
-    fig, axes = plt.subplots(2, 2, figsize=(10, 10))
+    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
     
     # Sinogram
     axes[0, 0].imshow(sinogram, cmap='gray', aspect='auto')
@@ -86,27 +91,39 @@ def test_sinogram(sinogram_path, angle_range=180, save_results=True):
     axes[0, 1].imshow(reconstruction_dfr, cmap='gray')
     axes[0, 1].set_title('CTSlice (Direct Fourier)', fontsize=10)
     axes[0, 1].axis('off')
+
+    axes[0, 2].imshow(reconstruction_fbp, cmap='gray')
+    axes[0, 2].set_title('CTRadon (Filtered Backprojection)', fontsize=10)
+    axes[0, 2].axis('off')
     
     # Skimage reconstruction or placeholder
     if reconstruction_skimage is not None:
         axes[1, 0].imshow(reconstruction_skimage, cmap='gray')
-        axes[1, 0].set_title('skimage iradon (FBP)', fontsize=10)
+        axes[1, 0].set_title('skimage iradon (reference)', fontsize=10)
         axes[1, 0].axis('off')
         
         # Difference between methods (normalize both for fair comparison)
         dfr_norm = reconstruction_dfr / (np.abs(reconstruction_dfr).max() + 1e-10)
         ski_norm = reconstruction_skimage / (np.abs(reconstruction_skimage).max() + 1e-10)
-        diff = np.abs(dfr_norm - ski_norm)
-        axes[1, 1].imshow(diff, cmap='hot')
-        axes[1, 1].set_title(f'Normalized Difference\n(Max: {diff.max():.4f})', fontsize=10)
+        fbp_norm = reconstruction_fbp / (np.abs(reconstruction_fbp).max() + 1e-10)
+        diff_dfr = np.abs(dfr_norm - ski_norm)
+        diff_fbp = np.abs(fbp_norm - ski_norm)
+        axes[1, 1].imshow(diff_dfr, cmap='hot')
+        axes[1, 1].set_title(f'DFR vs iradon\n(Max: {diff_dfr.max():.4f})', fontsize=10)
         axes[1, 1].axis('off')
+        axes[1, 2].imshow(diff_fbp, cmap='hot')
+        axes[1, 2].set_title(f'FBP vs iradon\n(Max: {diff_fbp.max():.4f})', fontsize=10)
+        axes[1, 2].axis('off')
     else:
         axes[1, 0].text(0.5, 0.5, 'skimage not installed\nInstall with:\npip install scikit-image', 
                        ha='center', va='center', fontsize=9)
         axes[1, 0].axis('off')
-        axes[1, 1].text(0.5, 0.5, 'Comparison not available', 
-                       ha='center', va='center', fontsize=9)
+        axes[1, 1].imshow(reconstruction_fbp, cmap='gray')
+        axes[1, 1].set_title('CTRadon (FBP)', fontsize=10)
         axes[1, 1].axis('off')
+        axes[1, 2].text(0.5, 0.5, 'Comparison not available', 
+                       ha='center', va='center', fontsize=9)
+        axes[1, 2].axis('off')
     
     plt.tight_layout(pad=0.5)
     
@@ -127,6 +144,14 @@ def test_sinogram(sinogram_path, angle_range=180, save_results=True):
         recon_path = Path('../results') / f'{Path(sinogram_path).stem}_reconstructed.png'
         cv2.imwrite(str(recon_path), recon_normalized)
         print(f"Saved reconstruction to: {recon_path}")
+
+        recon_fbp_normalized = reconstruction_fbp - reconstruction_fbp.min()
+        if recon_fbp_normalized.max() > 0:
+            recon_fbp_normalized = recon_fbp_normalized / recon_fbp_normalized.max() * 255
+        recon_fbp_normalized = recon_fbp_normalized.astype(np.uint8)
+        recon_fbp_path = Path('../results') / f'{Path(sinogram_path).stem}_fbp_reconstructed.png'
+        cv2.imwrite(str(recon_fbp_path), recon_fbp_normalized)
+        print(f"Saved FBP reconstruction to: {recon_fbp_path}")
     
     plt.show()
     
@@ -163,7 +188,7 @@ def main():
         filepath = data_dir / filename
         if filepath.exists():
             try:
-                test_sinogram(filepath, angle_range=180, save_results=True)
+                run_sinogram_test(filepath, angle_range=180, save_results=True)
             except Exception as e:
                 print(f"Error processing {filename}: {e}")
         else:
