@@ -2,7 +2,7 @@
   "master": {
     "tasks": [
       {
-        "id": 1,
+        "id": "1",
         "title": "Set up project structure and dependencies",
         "description": "Create the necessary directory structure (src/, doc/, results/) and set up Python dependencies including numpy, scipy, opencv, matplotlib",
         "details": "",
@@ -10,17 +10,20 @@
         "status": "done",
         "dependencies": [],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 3,
+        "recommendedSubtasks": 2,
+        "expansionPrompt": "Break down the task into setting up the directory structure and installing each dependency separately."
       },
       {
-        "id": 2,
+        "id": "2",
         "title": "Implement CTSlice - Direct Fourier Reconstruction",
         "description": "Implement the Direct Fourier Reconstruction method using Fourier Slice Theorem. Function takes sinogram and angle range (180° or 360°) as input and returns reconstructed CT slice. Must use fftshift/ifftshift for correct phase information. Works only for parallel projection.",
         "details": "",
         "testStrategy": "",
         "status": "done",
         "dependencies": [
-          1
+          "1"
         ],
         "priority": "high",
         "subtasks": [
@@ -31,7 +34,8 @@
             "dependencies": [],
             "details": "Use FFT to transform the sinogram, apply the Fourier Slice Theorem, and ensure correct phase information with fftshift/ifftshift.\n<info added on 2025-11-18T10:17:31.368Z>\nInitial implementation of Fourier Slice Theorem completed:\n\n**Implementation Details:**\n- Created ct_slice.py with CTSlice() function\n- Implemented the core Fourier Slice Theorem algorithm:\n  1. Takes 1D FFT of each projection (sinogram row) using fftshift(fft(ifftshift()))\n  2. Places frequency data along radial lines in 2D Fourier space at corresponding angles\n  3. Accumulates contributions from all angles\n  4. Performs 2D inverse FFT to reconstruct the image\n\n**Key Technical Decisions:**\n- Used proper phase handling with fftshift/ifftshift as required\n- Output size matches detector count for square reconstruction\n- Accumulation approach with normalization by number of angles\n- Implemented two versions: basic (direct assignment) and gridded (using scipy's map_coordinates)\n\n**Testing:**\n- Basic synthetic test passes (constant sinogram reconstructs correctly)\n- Function signature matches requirements: CTSlice(sinogram, angle_range=180)\n\n**Next Steps:**\n- Need to test with real CT sinogram data from Data/ directory\n- May need to refine interpolation approach for better quality\n- Should compare both implementation variants\n</info added on 2025-11-18T10:17:31.368Z>\n<info added on 2025-11-18T10:21:48.304Z>\nFinal Implementation Successful!\n\nRefined the Fourier Slice Theorem implementation after research:\n\n**Key Improvements:**\n1. Improved polar-to-Cartesian interpolation using scipy's map_coordinates\n2. Proper handling of 180° vs 360° angle ranges using Hermitian symmetry\n3. Correct frequency indexing with proper centering at DC component  \n4. Removed ramp filter (belongs in FBP, not DFR)\n\n**Verification:**\n- Tested with sino_circle.png (361 angles, 360° range): Successful circle reconstruction\n- Tested with multiple sinograms: All show correct reconstruction\n- Values in expected range (mean ~0.0008, properly centered around zero for float)\n\n**Algorithm Flow Confirmed:**\n1. 1D FFT of each projection with fftshift/ifftshift ✓\n2. Map polar frequency data to Cartesian grid ✓\n3. Bilinear interpolation using map_coordinates ✓\n4. 2D inverse FFT to get reconstructed image ✓\n\nImplementation is complete and working correctly.\n</info added on 2025-11-18T10:21:48.304Z>",
             "status": "done",
-            "testStrategy": "Verify with known analytical solutions."
+            "testStrategy": "Verify with known analytical solutions.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -42,7 +46,8 @@
             ],
             "details": "Ensure the function accepts inputs for sinogram and angle range (180° or 360°) and outputs the reconstructed image.\n<info added on 2025-11-18T10:22:46.882Z>\nInput/Output handling completed successfully!\n\nAdded comprehensive input validation to CTSlice function:\n\nValidation Features:\n1. Type checking - ensures sinogram is numpy array (or convertible)\n2. Dimension checking - validates 2D array shape\n3. Size validation - minimum 2 angles and 2 detectors\n4. Angle range validation - between 1-360 degrees, accepts float or int\n5. Automatic type conversion - converts integer sinograms to float64\n\nError Handling:\n- TypeError for non-array inputs or invalid angle_range type\n- ValueError for wrong dimensions, invalid sizes, or out-of-range angles\n- Clear, informative error messages\n\nOutput Guarantees:\n- Always returns float64 array\n- Output shape is (N, N) where N = num_detectors\n- Properly normalized reconstruction\n\nTesting:\nAll validation tests passed:\n✓ Valid float input\n✓ Integer input conversion\n✓ 180° and 360° angle ranges\n✓ Rejection of invalid angle ranges\n✓ Rejection of non-2D arrays\n✓ Rejection of too-small sinograms\n\nFunction interface is robust and ready for production use!\n</info added on 2025-11-18T10:22:46.882Z>",
             "status": "done",
-            "testStrategy": "Test with various input formats and validate output structure."
+            "testStrategy": "Test with various input formats and validate output structure.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -54,19 +59,23 @@
             ],
             "details": "Use sample sinograms to test the reconstruction accuracy and performance of the CTSlice function.\n<info added on 2025-11-18T10:23:53.145Z>\n**Comprehensive testing completed successfully!**\n\nCreated validate_ct_slice.py - comprehensive validation script for CTSlice implementation.\n\n**Test Results:**\nAll 4 parallel projection sinograms tested successfully:\n\n1. **sino_42.png** (180 angles × 511 detectors, 180°)\n   - Reconstruction range: [-0.0006, 0.0034]\n   - Successfully reconstructed\n\n2. **sino_circle.png** (361 angles × 600 detectors, 360°)\n   - Reconstruction range: [-0.0025, 0.0217]\n   - Perfect circle reconstruction with clean edges\n   - Some expected X-ray pattern artifacts (typical for DFR)\n\n3. **sino_drawing.png** (180 angles × 196 detectors, 180°)\n   - Reconstruction range: [-0.0007, 0.0103]\n   - Successfully reconstructed flower/clover shape\n   - Clear structural features preserved\n\n4. **sino.jpg** (375 angles × 250 detectors, 360°)\n   - Reconstruction range: [-0.0013, 0.0103]\n   - Auto-detection of 360° range worked correctly\n\n**Validation Features:**\n- Automatic angle range detection (180° vs 360°)\n- Side-by-side visualization of sinogram and reconstruction\n- Saved validation figures and reconstruction images to results/validation/\n- Comprehensive statistics (min, max, mean, std)\n- Proper normalization for display\n\n**Quality Assessment:**\n✓ All reconstructions show correct structure\n✓ Circular objects remain circular (no major distortion)\n✓ Complex shapes (flower) preserved\n✓ Both 180° and 360° ranges working correctly\n✓ Artifacts are minimal and expected for DFR method\n\nCTSlice implementation is validated and production-ready!\n</info added on 2025-11-18T10:23:53.145Z>",
             "status": "done",
-            "testStrategy": "Compare reconstructed slices with ground truth images."
+            "testStrategy": "Compare reconstructed slices with ground truth images.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 7,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Divide the task into implementing the Fourier Slice Theorem, handling input/output, and testing with sample data."
       },
       {
-        "id": 3,
+        "id": "3",
         "title": "Implement CTRadon - Filtered Backprojection",
         "description": "Implement Filtered Backprojection (FBP) method. Apply filter to sinogram before backprojection to remove blurriness. Function takes sinogram and angle range as input. May use OpenCV's getRotationMatrix2D and warpAffine. Cannot use skimage's iradon in implementation (only for comparison). Works only for parallel projection.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
-          1
+          "1"
         ],
         "priority": "high",
         "subtasks": [
@@ -76,8 +85,10 @@
             "description": "Develop the filtering process to apply to the sinogram before backprojection.",
             "dependencies": [],
             "details": "Use a suitable filter to process the sinogram data to reduce blurriness. Ensure compatibility with parallel projection.",
-            "status": "pending",
-            "testStrategy": "Verify filter effectiveness by comparing filtered and unfiltered outputs."
+            "status": "done",
+            "testStrategy": "Verify filter effectiveness by comparing filtered and unfiltered outputs.",
+            "parentId": "undefined",
+            "updatedAt": "2025-12-02T11:15:51.890Z"
           },
           {
             "id": 2,
@@ -87,8 +98,10 @@
               1
             ],
             "details": "Implement the backprojection using OpenCV's getRotationMatrix2D and warpAffine. Avoid using skimage's iradon.",
-            "status": "pending",
-            "testStrategy": "Compare reconstructed images with skimage's iradon results for accuracy."
+            "status": "done",
+            "testStrategy": "Compare reconstructed images with skimage's iradon results for accuracy.",
+            "parentId": "undefined",
+            "updatedAt": "2025-12-02T11:15:52.198Z"
           },
           {
             "id": 3,
@@ -99,8 +112,10 @@
               2
             ],
             "details": "Ensure the function accepts sinogram and angle range as inputs and outputs the reconstructed image.",
-            "status": "pending",
-            "testStrategy": "Test with various input sizes and angle ranges to ensure robustness."
+            "status": "done",
+            "testStrategy": "Test with various input sizes and angle ranges to ensure robustness.",
+            "parentId": "undefined",
+            "updatedAt": "2025-12-02T11:15:53.020Z"
           },
           {
             "id": 4,
@@ -112,21 +127,27 @@
               3
             ],
             "details": "Develop test cases to validate the accuracy and performance of the FBP method. Use skimage's iradon for comparison.",
-            "status": "pending",
-            "testStrategy": "Perform unit tests and compare results with known benchmarks."
+            "status": "done",
+            "testStrategy": "Perform unit tests and compare results with known benchmarks.",
+            "parentId": "undefined",
+            "updatedAt": "2025-12-02T11:15:53.889Z"
           }
-        ]
+        ],
+        "complexity": 8,
+        "recommendedSubtasks": 4,
+        "expansionPrompt": "Separate the task into implementing the filtering process, backprojection, handling input/output, and testing.",
+        "updatedAt": "2025-12-02T11:15:53.889Z"
       },
       {
-        "id": 4,
+        "id": "4",
         "title": "Implement Rebinning algorithm",
         "description": "Implement rebinning to convert divergent projection (fan-beam) sinograms to parallel projection sinograms. Function takes sinogram and parameters (FOD, FDD, sensor width, center offset) as input. Must account for Y-axis pointing downward in image coordinate systems. Output is rebinned sinogram usable by CTSlice and CTRadon.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          2,
-          3
+          "2",
+          "3"
         ],
         "priority": "high",
         "subtasks": [
@@ -137,7 +158,8 @@
             "dependencies": [],
             "details": "Study relevant literature and existing algorithms for rebinning. Focus on the transformation of coordinates and handling of input parameters like FOD, FDD, sensor width, and center offset.",
             "status": "pending",
-            "testStrategy": null
+            "testStrategy": null,
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -148,7 +170,8 @@
             ],
             "details": "Use insights from research to implement the algorithm. Ensure the Y-axis is correctly oriented downward in the image coordinate system. Validate the output against expected parallel-beam sinograms.",
             "status": "pending",
-            "testStrategy": "Compare output with known parallel-beam sinograms and validate using CTSlice and CTRadon."
+            "testStrategy": "Compare output with known parallel-beam sinograms and validate using CTSlice and CTRadon.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -159,7 +182,8 @@
             ],
             "details": "Consider scenarios such as extreme values of FOD, FDD, and center offset. Ensure robustness against unusual input configurations.",
             "status": "pending",
-            "testStrategy": "Test with edge case inputs and verify stability and correctness of the output."
+            "testStrategy": "Test with edge case inputs and verify stability and correctness of the output.",
+            "parentId": "undefined"
           },
           {
             "id": 4,
@@ -171,75 +195,91 @@
             ],
             "details": "Design unit tests and integration tests to cover typical and edge case scenarios. Ensure compatibility with CTSlice and CTRadon outputs.",
             "status": "pending",
-            "testStrategy": "Automate tests to run against a variety of input sinograms and parameters, ensuring consistent and correct rebinning."
+            "testStrategy": "Automate tests to run against a variety of input sinograms and parameters, ensuring consistent and correct rebinning.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 9,
+        "recommendedSubtasks": 4,
+        "expansionPrompt": "Break down into understanding the rebinning process, implementing the algorithm, handling edge cases, and testing."
       },
       {
-        "id": 5,
+        "id": "5",
         "title": "Implement Sinogram Generation",
         "description": "Implement method to generate sinograms from arbitrary images. This is the forward Radon transform. Should support different numbers of angles and projection types.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          1
+          "1"
         ],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 6,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Divide into implementing the forward Radon transform, supporting different angles, and testing with various images."
       },
       {
-        "id": 6,
+        "id": "6",
         "title": "Test with parallel projection data",
         "description": "Test CTSlice and CTRadon implementations with provided parallel projection sinograms (SheppLoganPhantom, Lotus, Walnut). Compare results between both methods. Test with both 180° and 360° angle ranges.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          2,
-          3
+          "2",
+          "3"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 2,
+        "expansionPrompt": "Separate into preparing test data and conducting comparative analysis between methods."
       },
       {
-        "id": 7,
+        "id": "7",
         "title": "Test with divergent projection data",
         "description": "Test Rebinning algorithm with provided divergent projection sinograms (lotus_divergent, walnut_divergent). Use rebinned output with CTSlice and CTRadon. Compare reconstruction quality before and after rebinning.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          4,
-          6
+          "4",
+          "6"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 6,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Break down into preparing divergent data, applying rebinning, and analyzing results before and after rebinning."
       },
       {
-        "id": 8,
+        "id": "8",
         "title": "Conduct sinogram generation experiments",
         "description": "Test sinogram generation with custom images. Analyze: (1) impact of number of angles on reconstruction quality, (2) possibility of exact reconstruction, (3) application to photos. Document observations for report.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          5,
-          6
+          "5",
+          "6"
         ],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 5,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Divide into setting up experiments, conducting tests with different parameters, and documenting results."
       },
       {
-        "id": 9,
+        "id": "9",
         "title": "Implement extra features (optional)",
         "description": "For higher grade: (1) Auto-detect if sinogram is 180° or 360°, (2) Auto-detect if sensor images are stacked horizontally or vertically, (3) Implement additional filter methods for FBP.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          6,
-          7
+          "6",
+          "7"
         ],
         "priority": "low",
         "subtasks": [
@@ -250,7 +290,8 @@
             "dependencies": [],
             "details": "Create an algorithm to analyze sinogram data and determine the angle range. Use statistical methods to differentiate between 180° and 360° sinograms.",
             "status": "pending",
-            "testStrategy": "Test with known 180° and 360° sinograms to verify accuracy."
+            "testStrategy": "Test with known 180° and 360° sinograms to verify accuracy.",
+            "parentId": "undefined"
           },
           {
             "id": 2,
@@ -259,7 +300,8 @@
             "dependencies": [],
             "details": "Analyze image metadata and pixel patterns to determine orientation. Implement logic to handle both horizontal and vertical stacking.",
             "status": "pending",
-            "testStrategy": "Test with sample images in both orientations to ensure correct detection."
+            "testStrategy": "Test with sample images in both orientations to ensure correct detection.",
+            "parentId": "undefined"
           },
           {
             "id": 3,
@@ -268,43 +310,57 @@
             "dependencies": [],
             "details": "Research and implement additional filters such as Hamming and Hann. Integrate these filters into the existing FBP workflow.",
             "status": "pending",
-            "testStrategy": "Compare reconstruction quality using different filters on sample sinograms."
+            "testStrategy": "Compare reconstruction quality using different filters on sample sinograms.",
+            "parentId": "undefined"
           }
-        ]
+        ],
+        "complexity": 7,
+        "recommendedSubtasks": 3,
+        "expansionPrompt": "Separate into implementing auto-detection features and additional filters, and testing each feature."
       },
       {
-        "id": 10,
+        "id": "10",
         "title": "Create comprehensive documentation",
         "description": "Write 5-page report (PDF) describing: (1) Content of src directory, (2) Program usage instructions, (3) Implementation details of each algorithm, (4) Experimental results and observations, (5) Mathematical background and theory.",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          6,
-          7,
-          8
+          "6",
+          "7",
+          "8"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 4,
+        "recommendedSubtasks": 2,
+        "expansionPrompt": "Break down into writing sections on implementation details and experimental results."
       },
       {
-        "id": 11,
+        "id": "11",
         "title": "Prepare final submission package",
         "description": "Create .zip archive with three directories: src/ (Python code and input data), doc/ (PDF report), results/ (input/output images). Ensure code is easily executable. Verify all requirements are met for submission deadline (January 22, 2026).",
         "details": "",
         "testStrategy": "",
         "status": "pending",
         "dependencies": [
-          10
+          "10"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "complexity": 3,
+        "recommendedSubtasks": 2,
+        "expansionPrompt": "Divide into organizing files into directories and verifying all submission requirements are met."
       }
     ],
     "metadata": {
-      "created": "2025-11-18T09:35:23.433Z",
-      "description": "Default tasks context",
-      "updated": "2025-11-18T10:23:53.595Z"
+      "version": "1.0.0",
+      "lastModified": "2025-12-02T11:15:53.889Z",
+      "taskCount": 11,
+      "completedCount": 3,
+      "tags": [
+        "master"
+      ]
     }
   }
 }
