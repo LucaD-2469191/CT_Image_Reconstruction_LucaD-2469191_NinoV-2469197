@@ -8,9 +8,15 @@ parallel projection sinograms and compares results with expected outputs.
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
-import cv2
+import sys
 from ct_slice import CTSlice, CTRadon
+import cv2
 
+# Ensure local src imports work regardless of cwd
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+SRC_ROOT = PROJECT_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
 def load_sinogram(filepath):
     """Load a sinogram from an image file and normalize to [0, 1]."""
@@ -138,7 +144,8 @@ def validate_reconstruction(sinogram_path, angle_range=None, save_results=True, 
         plt.tight_layout(pad=1.0)
         
         # Save figure with lower DPI for smaller file size
-        output_path = Path('../results/validation') / f'{sino_path.stem}_validation.png'
+        results_dir = PROJECT_ROOT / "results" / "validation"
+        output_path = results_dir / f'{sino_path.stem}_validation.png'
         output_path.parent.mkdir(parents=True, exist_ok=True)
         plt.savefig(output_path, dpi=100, bbox_inches='tight')
         print(f"\nSaved validation figure: {output_path}")
@@ -182,8 +189,9 @@ def main(show_plots=True):
     else:
         print("Batch mode: Plots will be saved without displaying")
     
-    # Define test cases
-    data_dir = Path('../Data/Parallel Projection')
+    # Define test cases (resolve relative to project root)
+    project_root = Path(__file__).resolve().parent.parent
+    data_dir = project_root / 'Data' / 'Parallel Projection'
     
     test_cases = [
         ('sino_42.png', 180),  # Appears to be 180° based on 180 angles

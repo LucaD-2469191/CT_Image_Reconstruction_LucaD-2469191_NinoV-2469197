@@ -336,41 +336,51 @@ def CTSlice_gridded(sinogram, angle_range=180):
     # Create 2D Cartesian frequency grid centered at origin
     center = output_size // 2
     kx = np.arange(output_size) - center
-    ky = np.arange(output_size) - center
+    # Use mathematical y-up so output matches FBP orientation without post flips
+    ky = center - np.arange(output_size)
     kx_grid, ky_grid = np.meshgrid(kx, ky)
     
-    # Convert Cartesian coordinates to polar
+    # Convert Cartesian coordinates to polar (keep signed angle and unsigned radius)
+    theta_orig = np.arctan2(ky_grid, kx_grid)  # range [-pi, pi)
     r_grid = np.sqrt(kx_grid**2 + ky_grid**2)
-    theta_grid = np.arctan2(ky_grid, kx_grid)
     
-    # Handle angle wrapping for proper interpolation
-    # For 180 degree range, we use symmetry: F(-θ) = F*(θ)
-    # For 360 degree range, we cover the full circle
+    # Handle angle wrapping and Hermitian symmetry explicitly for 180° coverage
     if angle_range == 180:
-        # Use Hermitian symmetry property
-        theta_grid = np.mod(theta_grid, np.pi)
+        # Normalize to [0, 2π)
+        theta_0_2pi = np.mod(theta_orig, 2 * np.pi)
+        # For the second half-circle, map angle back into [0, π) and flip radial sign
+        mask_second_half = theta_0_2pi >= np.pi
+        theta_mapped = np.where(mask_second_half, theta_0_2pi - np.pi, theta_0_2pi)
+        angle_indices = theta_mapped * (num_angles / np.pi)
+        angle_indices = np.clip(angle_indices, 0, num_angles - 1)
+        
+        # Radial indices with sign: second half uses negative radius (handled by center shift)
+        r_signed = np.where(mask_second_half, -r_grid, r_grid)
+        freq_indices = r_signed + center
+        freq_indices = np.clip(freq_indices, 0, num_detectors - 1)
+        
+        coords = np.array([angle_indices.ravel(), freq_indices.ravel()])
+        real_vals = map_coordinates(projections_fft.real, coords, order=1, mode="nearest")
+        imag_vals = map_coordinates(projections_fft.imag, coords, order=1, mode="nearest")
+        fourier_2d = (real_vals + 1j * imag_vals).reshape((output_size, output_size))
     else:
-        theta_grid = np.mod(theta_grid, 2*np.pi)
+        # Full 0..360° coverage: direct sampling
+        theta_mapped = np.mod(theta_orig, 2 * np.pi)
+        angle_indices = theta_mapped * (num_angles / (2 * np.pi))
+        angle_indices = np.clip(angle_indices, 0, num_angles - 1)
+        
+        freq_indices = r_grid + center
+        freq_indices = np.clip(freq_indices, 0, num_detectors - 1)
+        
+        coords = np.array([angle_indices.ravel(), freq_indices.ravel()])
+        real_vals = map_coordinates(projections_fft.real, coords, order=1, mode="nearest")
+        imag_vals = map_coordinates(projections_fft.imag, coords, order=1, mode="nearest")
+        fourier_2d = (real_vals + 1j * imag_vals).reshape((output_size, output_size))
     
-    # Map to indices in our projections_fft array
-    # Angle index: map angle to projection index
-    angle_indices = theta_grid * num_angles / np.deg2rad(angle_range)
-    angle_indices = np.clip(angle_indices, 0, num_angles - 1)
-    
-    # Radial index: map radial distance to frequency index
-    # The center of projections_fft corresponds to DC (zero frequency)
-    # which is at index num_detectors // 2 after fftshift
-    max_radius = num_detectors // 2
-    freq_indices = r_grid + num_detectors // 2
-    freq_indices = np.clip(freq_indices, 0, num_detectors - 1)
-    
-    # Use map_coordinates for bilinear interpolation
-    # This smoothly interpolates between the polar-sampled frequency data
-    coordinates = np.array([angle_indices.ravel(), freq_indices.ravel()])
-    fourier_2d_real = map_coordinates(projections_fft.real, coordinates, order=1, mode='nearest')
-    fourier_2d_imag = map_coordinates(projections_fft.imag, coordinates, order=1, mode='nearest')
-    fourier_2d = (fourier_2d_real + 1j * fourier_2d_imag).reshape((output_size, output_size))
-    
+    # Zero outside the inscribed circle to avoid high-frequency ringing
+    r_grid = np.sqrt(kx_grid**2 + ky_grid**2)
+    fourier_2d[r_grid > center] = 0.0
+
     # Perform 2D inverse FFT to get reconstructed image
     reconstruction = fftshift(ifft2(ifftshift(fourier_2d)))
     reconstruction = np.real(reconstruction)

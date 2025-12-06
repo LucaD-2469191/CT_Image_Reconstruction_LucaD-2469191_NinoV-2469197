@@ -10,7 +10,14 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 import cv2
 from ct_slice import CTSlice, CTRadon
+import sys
 
+# Ensure local src imports work regardless of cwd
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+SRC_ROOT = PROJECT_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
+    
 # Try to import skimage's iradon for comparison
 try:
     from skimage.transform import iradon
@@ -61,7 +68,11 @@ def run_sinogram_test(sinogram_path, angle_range=180, save_results=True):
     print(f"Reconstruction value range: [{reconstruction_dfr.min():.4f}, {reconstruction_dfr.max():.4f}]")
 
     print("\nTesting CTRadon (Filtered Backprojection)...")
-    reconstruction_fbp = CTRadon(sinogram, angle_range=angle_range)
+    reconstruction_fbp = CTRadon(
+        sinogram,
+        angle_range=angle_range,
+        output_size=sinogram.shape[1],  # match detector count for shape alignment
+    )
     print(f"Reconstruction shape: {reconstruction_fbp.shape}")
     print(f"Reconstruction value range: [{reconstruction_fbp.min():.4f}, {reconstruction_fbp.max():.4f}]")
     
@@ -71,7 +82,13 @@ def run_sinogram_test(sinogram_path, angle_range=180, save_results=True):
         print("\nTesting skimage's iradon (reference implementation)...")
         # skimage expects sinogram transposed and angles in degrees
         theta = np.linspace(0, angle_range, sinogram.shape[0], endpoint=False)
-        reconstruction_skimage = iradon(sinogram.T, theta=theta, circle=True)
+        # Match our output size to detector count so shapes align for diffs
+        reconstruction_skimage = iradon(
+            sinogram.T,
+            theta=theta,
+            circle=True,
+            output_size=sinogram.shape[1],
+        )
         print(f"Reconstruction shape: {reconstruction_skimage.shape}")
         print(f"Reconstruction value range: [{reconstruction_skimage.min():.4f}, {reconstruction_skimage.max():.4f}]")
     else:
@@ -129,8 +146,9 @@ def run_sinogram_test(sinogram_path, angle_range=180, save_results=True):
     
     if save_results:
         # Save figure with lower DPI
-        output_path = Path('../results') / f'test_{Path(sinogram_path).stem}_reconstruction.png'
-        output_path.parent.mkdir(exist_ok=True)
+        results_dir = PROJECT_ROOT / "results"
+        output_path = results_dir / f'test_{Path(sinogram_path).stem}_reconstruction.png'
+        output_path.parent.mkdir(exist_ok=True, parents=True)
         plt.savefig(output_path, dpi=100, bbox_inches='tight')
         print(f"\nSaved results to: {output_path}")
         
@@ -141,7 +159,7 @@ def run_sinogram_test(sinogram_path, angle_range=180, save_results=True):
             recon_normalized = recon_normalized / recon_normalized.max() * 255
         recon_normalized = recon_normalized.astype(np.uint8)
         
-        recon_path = Path('../results') / f'{Path(sinogram_path).stem}_reconstructed.png'
+        recon_path = results_dir / f'{Path(sinogram_path).stem}_reconstructed.png'
         cv2.imwrite(str(recon_path), recon_normalized)
         print(f"Saved reconstruction to: {recon_path}")
 
@@ -149,7 +167,7 @@ def run_sinogram_test(sinogram_path, angle_range=180, save_results=True):
         if recon_fbp_normalized.max() > 0:
             recon_fbp_normalized = recon_fbp_normalized / recon_fbp_normalized.max() * 255
         recon_fbp_normalized = recon_fbp_normalized.astype(np.uint8)
-        recon_fbp_path = Path('../results') / f'{Path(sinogram_path).stem}_fbp_reconstructed.png'
+        recon_fbp_path = results_dir / f'{Path(sinogram_path).stem}_fbp_reconstructed.png'
         cv2.imwrite(str(recon_fbp_path), recon_fbp_normalized)
         print(f"Saved FBP reconstruction to: {recon_fbp_path}")
     
@@ -161,8 +179,9 @@ def run_sinogram_test(sinogram_path, angle_range=180, save_results=True):
 def main():
     """Run tests on available sinograms."""
     
-    # Define data directory
-    data_dir = Path('../Data/Parallel Projection')
+    # Define test cases (resolve relative to project root)
+    project_root = Path(__file__).resolve().parent.parent
+    data_dir = project_root / 'Data' / 'Parallel Projection'
     
     # List of sinogram files to test
     # Based on the file names, these appear to be sinograms
