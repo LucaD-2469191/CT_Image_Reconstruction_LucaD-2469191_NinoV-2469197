@@ -39,7 +39,12 @@ def load_sinogram_image(filepath):
     return sinogram
 
 
-def run_sinogram_test(sinogram_path, angle_range=180, save_results=True):
+def determine_angle_range(num_angles):
+    """Heuristic to choose between 180° and 360° coverage."""
+    return 180 if abs(num_angles - 180) < abs(num_angles - 360) else 360
+
+
+def run_sinogram_test(sinogram_path, angle_range=None, save_results=True):
     """
     Test CTSlice reconstruction on a single sinogram.
     
@@ -60,6 +65,11 @@ def run_sinogram_test(sinogram_path, angle_range=180, save_results=True):
     sinogram = load_sinogram_image(sinogram_path)
     print(f"Sinogram shape: {sinogram.shape}")
     print(f"Sinogram value range: [{sinogram.min():.4f}, {sinogram.max():.4f}]")
+
+    # Auto-detect angle range if not provided
+    if angle_range is None:
+        angle_range = determine_angle_range(sinogram.shape[0])
+        print(f"Auto-detected angle range: {angle_range}°")
     
     # Test CTSlice implementation
     print("\nTesting CTSlice (Direct Fourier Reconstruction)...")
@@ -202,12 +212,12 @@ def main():
     print("CT Slice - Direct Fourier Reconstruction Test Suite")
     print("="*60)
     
-    # Test sinogram files (assuming 180 degree range)
+    # Test sinogram files (auto-detect angle range)
     for filename in sinogram_files:
         filepath = data_dir / filename
         if filepath.exists():
             try:
-                run_sinogram_test(filepath, angle_range=180, save_results=True)
+                run_sinogram_test(filepath, angle_range=None, save_results=True)
             except Exception as e:
                 print(f"Error processing {filename}: {e}")
         else:
