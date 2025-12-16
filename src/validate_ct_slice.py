@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 import sys
-from ct_slice import CTSlice, CTRadon
+from ct_slice import CTSlice, CTRadon, generate_sinogram
 import cv2
 
 # Ensure local src imports work regardless of cwd
@@ -37,6 +37,89 @@ def determine_angle_range(num_angles):
         return 180
     else:
         return 360
+
+
+def _normalize_image(image):
+    """Normalize image to [0, 1] for fair metric comparison."""
+    image = image - image.min()
+    max_val = image.max()
+    if max_val > 0:
+        image = image / max_val
+    return image
+
+
+def _create_test_phantom(size, pattern):
+    """
+    Create synthetic phantoms for forward-projection validation.
+    
+    Parameters
+    ----------
+    size : int
+        Phantom image size (square).
+    pattern : str
+        Pattern identifier: 'square', 'circle', 'cross', 'point', or 'offset_rect'.
+    """
+    phantom = np.zeros((size, size), dtype=np.float64)
+    center = size // 2
+    
+    if pattern == "square":
+        margin = size // 4
+        phantom[margin:-margin, margin:-margin] = 1.0
+    elif pattern == "circle":
+        y, x = np.ogrid[:size, :size]
+        radius = int(size * 0.3)
+        mask = (x - center)**2 + (y - center)**2 <= radius**2
+        phantom[mask] = 1.0
+    elif pattern == "cross":
+        thickness = max(2, size // 16)
+        phantom[:, center - thickness:center + thickness] = 1.0
+        phantom[center - thickness:center + thickness, :] = 1.0
+    elif pattern == "offset_rect":
+        rect_height = size // 2
+        rect_width = size // 3
+        top = size // 5
+        left = size // 8
+        phantom[top:top + rect_height, left:left + rect_width] = 1.0
+    elif pattern == "point":
+        phantom[center, center] = 1.0
+    else:
+        raise ValueError(f"Unknown phantom pattern: {pattern}")
+    
+    return phantom
+
+
+def _load_phantom_image(image_path, normalize=True):
+    """Load an arbitrary image file to use as a phantom."""
+    img = cv2.imread(str(image_path), cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        raise ValueError(f"Could not load phantom image: {image_path}")
+    phantom = img.astype(np.float64)
+    if normalize:
+        phantom /= 255.0
+    return phantom
+
+
+def _resize_to_shape(image, target_shape):
+    """Resize reconstruction to match the phantom shape if needed."""
+    if image.shape == target_shape:
+        return image
+    target_h, target_w = target_shape
+    resized = cv2.resize(image, (target_w, target_h), interpolation=cv2.INTER_LINEAR)
+    return resized
+
+
+def _compute_image_metrics(reference, estimate):
+    """Return MAE, MSE, and PSNR between normalized reference and estimate."""
+    ref_norm = _normalize_image(reference)
+    est_norm = _normalize_image(estimate)
+    diff = ref_norm - est_norm
+    mse = float(np.mean(diff**2))
+    mae = float(np.mean(np.abs(diff)))
+    if mse == 0:
+        psnr = float("inf")
+    else:
+        psnr = float(10 * np.log10(1.0 / mse))
+    return {"mae": mae, "mse": mse, "psnr": psnr}
 
 
 def validate_reconstruction(sinogram_path, angle_range=None, save_results=True, show_plot=False):
@@ -170,6 +253,128 @@ def validate_reconstruction(sinogram_path, angle_range=None, save_results=True, 
     return results
 
 
+def validate_generate_sinogram(
+    patterns=None,
+    custom_images=None,
+    image_size=128,
+    num_angles=180,
+    angle_range=180,
+    save_results=True,
+    show_plot=False,
+):
+    """
+    Validate the forward projection implemented in generate_sinogram.
+    
+    The validation creates synthetic phantoms (or uses provided images), generates
+    their sinograms, and reconstructs them with CTRadon. Reconstruction fidelity
+    is reported with simple error metrics.
+    """
+    if patterns is None and not custom_images:
+        patterns = ("square", "circle", "cross", "point", "offset_rect")
+    if patterns is None:
+        patterns = ()
+    if custom_images is None:
+        custom_images = []
+    
+    print("\n" + "="*70)
+    print("Forward Projection Validation (generate_sinogram)")
+    print("="*70)
+    print(f"Phantom size: {image_size}×{image_size}")
+    print(f"Angles: {num_angles}, Angle range: {angle_range}°")
+    
+    results_dir = PROJECT_ROOT / "results" / "validation" / "forward_projection"
+    results = []
+    
+    def _phantom_label(name, is_custom):
+        return f"custom:{name}" if is_custom else f"pattern:{name}"
+    
+    phantom_entries = []
+    for pattern in patterns:
+        phantom = _create_test_phantom(image_size, pattern)
+        phantom_entries.append((_phantom_label(pattern, False), phantom, None))
+    
+    for entry in custom_images:
+        if isinstance(entry, (list, tuple)):
+            name, path = entry
+        else:
+            path = entry
+            name = Path(path).stem
+        path = Path(path)
+        phantom = _load_phantom_image(path)
+        phantom_entries.append((_phantom_label(name, True), phantom, path))
+    
+    if not phantom_entries:
+        print("No phantoms specified for validation.")
+        return results
+    
+    for label, phantom, source_path in phantom_entries:
+        print(f"\nPhantom: {label}")
+        if source_path:
+            print(f"  Source image: {source_path}")
+        phantom_shape = phantom.shape
+        print(f"  Phantom shape: {phantom_shape}")
+        
+        sinogram = generate_sinogram(
+            phantom,
+            num_angles=num_angles,
+            angle_range=angle_range,
+        )
+        reconstruction = CTRadon(
+            sinogram,
+            angle_range=angle_range,
+            output_size=max(phantom_shape),
+            filter_name="ram-lak",
+        )
+        reconstruction = _resize_to_shape(reconstruction, phantom_shape)
+        
+        metrics = _compute_image_metrics(phantom, reconstruction)
+        detector_extent = sinogram.shape[1]
+        print(f"  Sinogram shape: {sinogram.shape} (detector extent: {detector_extent})")
+        print(f"  Reconstruction range: [{reconstruction.min():.4f}, {reconstruction.max():.4f}]")
+        print(f"  MAE: {metrics['mae']:.6f} | MSE: {metrics['mse']:.6f} | PSNR: "
+              f"{metrics['psnr']:.2f} dB")
+        
+        results.append({
+            "phantom": label,
+            "phantom_shape": phantom.shape,
+            "source_path": str(source_path) if source_path else None,
+            "sinogram_shape": sinogram.shape,
+            "metrics": metrics,
+        })
+        
+        if save_results or show_plot:
+            fig, axes = plt.subplots(1, 3, figsize=(14, 4))
+            axes[0].imshow(_normalize_image(phantom), cmap="gray")
+            axes[0].set_title(f"Phantom: {label}")
+            axes[0].axis("off")
+            
+            axes[1].imshow(sinogram, cmap="gray", aspect="auto")
+            axes[1].set_title("Generated Sinogram")
+            axes[1].set_xlabel("Detector")
+            axes[1].set_ylabel("Angle")
+            
+            axes[2].imshow(_normalize_image(reconstruction), cmap="gray")
+            axes[2].set_title("CTRadon Reconstruction")
+            axes[2].axis("off")
+            
+            plt.tight_layout(pad=0.8)
+            
+            if save_results:
+                results_dir.mkdir(parents=True, exist_ok=True)
+                suffix = Path(source_path).stem if source_path else label.split(":", 1)[-1]
+                output_path = results_dir / f"generate_sinogram_{suffix}.png"
+                plt.savefig(output_path, dpi=100, bbox_inches="tight")
+                print(f"  Saved visualization: {output_path}")
+            
+            if show_plot:
+                plt.show()
+            else:
+                plt.close(fig)
+    
+    print("\nForward projection validation complete.")
+    return results
+
+
 def main(show_plots=True):
     """
     Run comprehensive validation on all available sinograms.
@@ -229,12 +434,15 @@ def main(show_plots=True):
                   f"({r['angle_range']:3d}°) - "
                   f"Recon range: [{r['recon_min']:7.4f}, {r['recon_max']:7.4f}]")
         
-        print(f"\n✓ All tests completed successfully!")
+        print(f"\n✓ All dataset reconstructions completed successfully!")
         print(f"✓ Results saved to: results/validation/")
     else:
-        print("\n✗ No tests completed successfully")
+        print("\n✗ No dataset reconstructions completed successfully")
     
     print("="*70)
+    
+    # Forward projection validation
+    validate_generate_sinogram(show_plot=show_plots)
 
 
 if __name__ == "__main__":

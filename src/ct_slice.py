@@ -546,43 +546,49 @@ def generate_sinogram(image, num_angles=180, angle_range=180):
     sinogram = np.zeros((num_angles, detector_extent), dtype=np.float64)
     angles = np.linspace(0.0, np.deg2rad(angle_range), num_angles, endpoint=False)
     
-    # 1. Creëer gecentreerde coördinaten (x en y)
-    radius = W // 2
-    # Gebruik ravel() om de 2D-coördinaten in 1D-lijsten te krijgen,
-    # zodat we ze kunnen zip-pen met de 1D-pixelwaarden (image.ravel())
-    x_coords, y_coords = np.mgrid[-radius:H-radius, -radius:W-radius]
+    # Creëer gecentreerde coördinaten. We volgen dezelfde conventie als _backproject:
+    # - r_coords: r = rij-offset, positief naar beneden
+    # - c_coords: c = kolom-offset, positief naar rechts
+    r_coords = np.arange(H) - (H - 1) / 2.0
+    c_coords = np.arange(W) - (W - 1) / 2.0
+    rr, cc = np.meshgrid(r_coords, c_coords, indexing="ij")
     
     # Maak de 1D lijsten van de coördinaten
-    x_flat = x_coords.ravel()
-    y_flat = y_coords.ravel()
+    c_flat = cc.ravel()
+    r_flat = rr.ravel()
     image_flat = image.ravel()
 
     detector_center = detector_extent // 2
     
     for i, theta in enumerate(angles):
         
-        # Projecteer (x, y) naar de detector-as (s)
-        # s = x * cos(theta) + y * sin(theta)
-        s_coords = x_flat * np.cos(theta) + y_flat * np.sin(theta)
+        # Projecteer (r, c) naar de detector-as (s)
+        # s = c * cos(theta) - r * sin(theta)  (matcht _backproject conventie)
+        s_coords = c_flat * np.cos(theta) - r_flat * np.sin(theta)
         
-        # Mappen naar discrete detector index (s_idx)
-        s_idx_int = np.round(s_coords + detector_center).astype(int)
+        # Continue detector index t.o.v. centrum
+        s_idx = s_coords + detector_center
+        s_floor = np.floor(s_idx).astype(int)
+        s_ceil = s_floor + 1
+        frac = s_idx - s_floor  # gewicht voor bovenste bin
         
-        # Zorg ervoor dat de indices binnen de grenzen van de sinogram rij blijven
-        valid_mask = (s_idx_int >= 0) & (s_idx_int < detector_extent)
+        valid_floor = (s_floor >= 0) & (s_floor < detector_extent)
+        valid_ceil = (s_ceil >= 0) & (s_ceil < detector_extent)
         
-        # Voer de sommatie uit (dit is de projectie integral)
-        
-        # We lopen alleen over de geldige punten om de sommatie in het sinogram uit te voeren
-        valid_indices = s_idx_int[valid_mask]
-        valid_intensities = image_flat[valid_mask]
-        
-        # Loop door de geldige punten en voeg de intensiteit toe aan de juiste bin
-        for val, idx in zip(valid_intensities, valid_indices):
-            # sinogram[huidige hoek (i), detector index (idx)] += pixel intensiteit (val)
-            sinogram[i, idx] += val
-            
-        return sinogram
+        if np.any(valid_floor):
+            np.add.at(
+                sinogram[i],
+                s_floor[valid_floor],
+                image_flat[valid_floor] * (1.0 - frac[valid_floor]),
+            )
+        if np.any(valid_ceil):
+            np.add.at(
+                sinogram[i],
+                s_ceil[valid_ceil],
+                image_flat[valid_ceil] * frac[valid_ceil],
+            )
+    
+    return sinogram
 
 
 
