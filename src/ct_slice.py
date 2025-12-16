@@ -540,6 +540,51 @@ def CTRadon(
 
     return reconstruction
 
+def generate_sinogram(image, num_angles=180, angle_range=180):
+    H, W = image.shape
+    detector_extent = int(np.ceil(np.sqrt(H**2 + W**2)))
+    sinogram = np.zeros((num_angles, detector_extent), dtype=np.float64)
+    angles = np.linspace(0.0, np.deg2rad(angle_range), num_angles, endpoint=False)
+    
+    # 1. Creëer gecentreerde coördinaten (x en y)
+    radius = W // 2
+    # Gebruik ravel() om de 2D-coördinaten in 1D-lijsten te krijgen,
+    # zodat we ze kunnen zip-pen met de 1D-pixelwaarden (image.ravel())
+    x_coords, y_coords = np.mgrid[-radius:H-radius, -radius:W-radius]
+    
+    # Maak de 1D lijsten van de coördinaten
+    x_flat = x_coords.ravel()
+    y_flat = y_coords.ravel()
+    image_flat = image.ravel()
+
+    detector_center = detector_extent // 2
+    
+    for i, theta in enumerate(angles):
+        
+        # Projecteer (x, y) naar de detector-as (s)
+        # s = x * cos(theta) + y * sin(theta)
+        s_coords = x_flat * np.cos(theta) + y_flat * np.sin(theta)
+        
+        # Mappen naar discrete detector index (s_idx)
+        s_idx_int = np.round(s_coords + detector_center).astype(int)
+        
+        # Zorg ervoor dat de indices binnen de grenzen van de sinogram rij blijven
+        valid_mask = (s_idx_int >= 0) & (s_idx_int < detector_extent)
+        
+        # Voer de sommatie uit (dit is de projectie integral)
+        
+        # We lopen alleen over de geldige punten om de sommatie in het sinogram uit te voeren
+        valid_indices = s_idx_int[valid_mask]
+        valid_intensities = image_flat[valid_mask]
+        
+        # Loop door de geldige punten en voeg de intensiteit toe aan de juiste bin
+        for val, idx in zip(valid_intensities, valid_indices):
+            # sinogram[huidige hoek (i), detector index (idx)] += pixel intensiteit (val)
+            sinogram[i, idx] += val
+            
+        return sinogram
+
+
 
 __all__ = [
     "CTSlice",
@@ -569,3 +614,36 @@ if __name__ == "__main__":
     print(f"Reconstruction value range: [{result.min():.4f}, {result.max():.4f}]")
     print("\nTest completed successfully!")
 
+    print("Testing Sinogram generation & CTRadon Reconstruction Cycle")
+
+    # 1. Creëer een simpele 2D-afbeelding (test-phantom: een vierkant)
+    img_size = 128
+    phantom = np.zeros((img_size, img_size), dtype=np.float64)
+    # Plaats een wit vierkant in het midden
+    phantom[32:96, 32:96] = 1.0 
+    
+    num_test_angles = 180
+    
+    # 2. Test: Genereer het sinogram (Forward Radon Transform)
+    # Merk op: de sinogram generatie functie moet nu boven dit blok zijn gedefinieerd.
+    print(f"Genereren van sinogram van {num_test_angles} hoeken...")
+    sino_generated = generate_sinogram(phantom, num_angles=num_test_angles, angle_range=180)
+    
+    # 3. Test: Reconstrueer met FBP
+    print("Reconstrueren met CTRadon (FBP)...")
+    reconstructed_fbp = CTRadon(sino_generated, angle_range=180, filter_name="ram-lak")
+    
+    # 4. Resultaten tonen
+    print(f"Input Image shape: {phantom.shape}")
+    print(f"Generated Sinogram shape: {sino_generated.shape}")
+    print(f"Reconstructed FBP shape: {reconstructed_fbp.shape}")
+    
+    # Eenvoudige check (zou positieve waarden moeten hebben)
+    print(f"Reconstruction FBP value range: [{reconstructed_fbp.min():.4f}, {reconstructed_fbp.max():.4f}]")
+    
+    # Controleer de nauwkeurigheid door het midden van het vierkant te inspecteren
+    center_val = reconstructed_fbp[img_size//2, img_size//2]
+    print(f"Waarde in het centrum van het gereconstrueerde vierkant: {center_val:.4f}")
+    
+    print("Test 2 (Generatie -> Reconstructie) voltooid.")
+    print("\nAlle tests succesvol voltooid!")
