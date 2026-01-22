@@ -121,8 +121,7 @@ def _compute_image_metrics(reference, estimate):
         psnr = float(10 * np.log10(1.0 / mse))
     return {"mae": mae, "mse": mse, "psnr": psnr}
 
-
-def validate_reconstruction(sinogram_path, angle_range=None, save_results=True, show_plot=False):
+def validate_reconstruction(sinogram_path, angle_range=None, save_results=True, show_plot=False, sensor_orientation="auto"):
     """
     Validate CTSlice reconstruction on a specific sinogram.
     
@@ -166,8 +165,8 @@ def validate_reconstruction(sinogram_path, angle_range=None, save_results=True, 
     
     # Perform reconstruction
     print("\nReconstructing...")
-    reconstruction = CTSlice(sinogram, angle_range=angle_range)
-    reconstruction_fbp = CTRadon(sinogram, angle_range=angle_range)
+    reconstruction = CTSlice(sinogram, angle_range=angle_range, sensor_orientation=sensor_orientation)
+    reconstruction_fbp = CTRadon(sinogram, angle_range=angle_range, sensor_orientation=sensor_orientation)
     
     print(f"DFR Reconstruction shape: {reconstruction.shape}")
     print(f"DFR value range: [{reconstruction.min():.6f}, {reconstruction.max():.6f}]")
@@ -399,22 +398,25 @@ def main(show_plots=True):
     data_dir = project_root / 'Data' / 'Parallel Projection'
     
     test_cases = [
-        ('sino_42.png', 180),  # Appears to be 180° based on 180 angles
-        ('sino_circle.png', 360),  # 361 angles suggests 360°
-        ('sino_drawing.png', 180),  # 180 angles
-        ('sino.jpg', None),  # Auto-detect (375 angles -> likely 360°)
+        ('sino_42.png', 180, "auto"),  # Appears to be 180° based on 180 angles
+        ('sino_circle.png', 360, "auto"),  # 361 angles suggests 360°
+        ('sino_drawing.png', 180, "auto"),  # 180 angles
+        ('sino.jpg', None, "auto"),  # Auto-detect (375 angles -> likely 360°)
+        ('SheppLoganPhantom.png', 180, "angles_rows"),
+        ('Lotus.png', 360, "auto"),
+        ('Walnut.png', 360, "auto"),
     ]
     
     # Run tests
     all_results = []
-    for filename, angle_range in test_cases:
+    for filename, angle_range, sensor_orientation in test_cases:
         filepath = data_dir / filename
         if not filepath.exists():
             print(f"\nWarning: File not found: {filepath}")
             continue
         
         try:
-            results = validate_reconstruction(filepath, angle_range=angle_range, show_plot=show_plots)
+            results = validate_reconstruction(filepath, angle_range=angle_range, show_plot=show_plots, sensor_orientation=sensor_orientation)
             all_results.append(results)
         except Exception as e:
             print(f"\nError processing {filename}: {e}")

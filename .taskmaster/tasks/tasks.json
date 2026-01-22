@@ -282,7 +282,7 @@
         "description": "For higher grade: (1) Auto-detect if sinogram is 180° or 360°, (2) Auto-detect if sensor images are stacked horizontally or vertically, (3) Implement additional filter methods for FBP.",
         "details": "",
         "testStrategy": "",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "6",
           "7"
@@ -322,7 +322,8 @@
         ],
         "complexity": 7,
         "recommendedSubtasks": 3,
-        "expansionPrompt": "Separate into implementing auto-detection features and additional filters, and testing each feature."
+        "expansionPrompt": "Separate into implementing auto-detection features and additional filters, and testing each feature.",
+        "updatedAt": "2025-12-08T13:51:30.389Z"
       },
       {
         "id": "10",
@@ -361,9 +362,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-02T12:43:51.581Z",
+      "lastModified": "2025-12-08T13:51:30.390Z",
       "taskCount": 11,
-      "completedCount": 5,
+      "completedCount": 6,
       "tags": [
         "master"
       ]
