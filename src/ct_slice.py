@@ -11,21 +11,173 @@ projection of an image (a row in a sinogram) is equal to a slice through the
 Reference: CT Image Reconstruction Project - Direct Fourier Reconstruction
 """
 
+from heapq import heapreplace
 import numpy as np
 from numpy.fft import fft, ifft, fft2, ifft2, fftshift, ifftshift
 from scipy.ndimage import map_coordinates
 
 
-def _validate_inputs(sinogram, angle_range):
+def _auto_orient_sinogram(sinogram, sensor_orientation="auto"):
+    """
+    Ensure the sinogram uses (num_angles, num_detectors) ordering.
+
+    The routine first leverages automated center-of-rotation (CoR) estimation
+    directly from the sinogram redundancy (a standard CT practice) to see which
+    axis behaves like the detector axis. If the CoR-based metric is inconclusive,
+    it falls back to simple dimensional heuristics.
+    """
+    if sensor_orientation not in {"auto", "angles_rows", "angles_cols"}:
+        raise ValueError("sensor_orientation must be 'auto', 'angles_rows', or 'angles_cols'")
+
+    rows, cols = sinogram.shape
+
+    if sensor_orientation == "angles_rows":
+        return sinogram, "angles_rows"
+    if sensor_orientation == "angles_cols":
+        return sinogram.T, "angles_rows"
+
+    def _center_of_rotation_cost(candidate):
+        candidate = np.asarray(candidate, dtype=np.float64)
+        num_angles, num_detectors = candidate.shape
+        if num_angles < 32 or num_detectors < 8:
+            return float("inf")
+        half = num_angles // 2
+        if half < 4 or num_angles < 2 * half:
+            return float("inf")
+        block_a = candidate[:half]
+        block_b = candidate[half : 2 * half]
+        usable = min(block_a.shape[0], block_b.shape[0])
+        if usable < 4:
+            return float("inf")
+        block_a = block_a[:usable]
+        block_b = block_b[:usable]
+        coords = np.arange(num_detectors, dtype=np.float64) - (num_detectors - 1) / 2.0
+        sums_a = np.sum(block_a, axis=1)
+        sums_b = np.sum(block_b, axis=1)
+        mask_a = np.abs(sums_a) > 1e-8
+        mask_b = np.abs(sums_b) > 1e-8
+        valid = mask_a & mask_b
+        if not np.any(valid):
+            return float("inf")
+        centers_a = np.zeros_like(sums_a, dtype=np.float64)
+        centers_b = np.zeros_like(sums_b, dtype=np.float64)
+        centers_a[mask_a] = (block_a[mask_a] @ coords) / sums_a[mask_a]
+        centers_b[mask_b] = (block_b[mask_b] @ coords) / sums_b[mask_b]
+        cost = np.mean(np.abs(centers_a[valid] + centers_b[valid]))
+        return float(cost)
+
+    cor_cost_rows = _center_of_rotation_cost(sinogram)
+    cor_cost_cols = _center_of_rotation_cost(sinogram.T)
+    cor_candidates = sorted(
+        [("angles_rows", cor_cost_rows), ("angles_cols", cor_cost_cols)],
+        key=lambda item: item[1],
+    )
+    best_orientation, best_cost = cor_candidates[0]
+    second_cost = cor_candidates[1][1]
+    
+    if np.isfinite(best_cost):
+        if not np.isfinite(second_cost) or best_cost * 1.05 < second_cost or best_cost < 1e-3:
+            if best_orientation == "angles_rows":
+                return sinogram, "angles_rows"
+            return sinogram.T, "angles_rows"
+            
+    
+    print("COR failed")
+    
+    
+    def _mod180_distance(n: int) -> float:
+        if n <= 0:
+            return float("inf")
+        rem = n % 180
+        return float(min(rem, 180 - rem))
+
+    row_mod = _mod180_distance(rows)
+    col_mod = _mod180_distance(cols)
+    if row_mod + 1e-6 < col_mod:
+        return sinogram, "angles_rows"
+    if col_mod + 1e-6 < row_mod:
+        return sinogram.T, "angles_rows"
+
+    def _score(n):
+        return min(abs(n - 180), abs(n - 360))
+
+    row_score = _score(rows)
+    col_score = _score(cols)
+
+    if col_score + 5 < row_score:
+        return sinogram.T, "angles_rows"
+    if row_score + 5 < col_score:
+        return sinogram, "angles_rows"
+
+    if cols > rows * 1.1:
+        return sinogram, "angles_rows"
+    if rows > cols * 1.1:
+        return sinogram.T, "angles_rows"
+
+    return sinogram, "angles_rows"
+
+
+def _detect_angle_range_from_sinogram(sinogram):
+    """
+    Decide whether the sinogram likely spans 180° or 360° using symmetry.
+
+    The heuristic compares the first half of the sinogram with a mirrored,
+    reversed copy of the second half. 180° coverage yields a low error because
+    the second half is redundant; 360° coverage produces a larger mismatch.
+    """
+    num_angles = sinogram.shape[0]
+    coarse_guess = _infer_angle_range(num_angles)
+
+    # Too few angles to reason about redundancy.
+    if num_angles < 90:
+        return float(coarse_guess)
+
+    half = num_angles // 2
+    if half < 1:
+        return float(coarse_guess)
+
+    first = sinogram[:half]
+    second = sinogram[half : 2 * half]
+    if second.size == 0:
+        return float(coarse_guess)
+
+    def _normalize(block):
+        block = block - np.mean(block)
+        std = np.std(block)
+        return block / std if std > 0 else block
+
+    first_n = _normalize(first)
+    second_n = _normalize(second)
+    mirrored = np.flip(second_n, axis=1)[::-1]
+
+    overlap = min(first_n.shape[0], mirrored.shape[0])
+    if overlap == 0:
+        return float(coarse_guess)
+
+    mae = float(np.mean(np.abs(first_n[:overlap] - mirrored[:overlap])))
+
+    # Lower error -> strong redundancy -> 180°. Higher error with many angles -> 360°.
+    if mae < 0.25:
+        return 180.0
+    if mae > 0.6 and num_angles >= 260:
+        return 360.0
+
+    return float(coarse_guess)
+
+
+def _validate_inputs(sinogram, angle_range, *, sensor_orientation="auto"):
     """
     Normalize and validate sinogram inputs shared by reconstruction algorithms.
+    
+    Performs optional auto-detection of angular coverage (180° vs 360°) and
+    sensor stacking orientation (angles along rows vs columns).
     
     Returns
     -------
     sinogram : np.ndarray
         Validated sinogram as float64.
     angle_range : float
-        Normalized angular range in degrees.
+        Normalized angular range in degrees (auto-detected when requested).
     num_angles : int
         Number of projection angles.
     num_detectors : int
@@ -42,6 +194,8 @@ def _validate_inputs(sinogram, angle_range):
     if sinogram.ndim != 2:
         raise ValueError(f"Sinogram must be 2D array, got shape {sinogram.shape}")
 
+    sinogram, _ = _auto_orient_sinogram(sinogram, sensor_orientation)
+
     num_angles, num_detectors = sinogram.shape
 
     if num_angles < 2:
@@ -50,10 +204,13 @@ def _validate_inputs(sinogram, angle_range):
     if num_detectors < 2:
         raise ValueError(f"Sinogram must have at least 2 detectors, got {num_detectors}")
 
-    try:
-        angle_range = float(angle_range)
-    except (TypeError, ValueError) as exc:
-        raise TypeError(f"angle_range must be numeric, got {type(angle_range)}") from exc
+    if angle_range is None or (isinstance(angle_range, str) and angle_range.lower() == "auto"):
+        angle_range = _detect_angle_range_from_sinogram(sinogram)
+    else:
+        try:
+            angle_range = float(angle_range)
+        except (TypeError, ValueError) as exc:
+            raise TypeError(f"angle_range must be numeric, got {type(angle_range)}") from exc
 
     if not (1 <= angle_range <= 360):
         raise ValueError(f"angle_range must be between 1 and 360 degrees, got {angle_range}")
@@ -238,7 +395,7 @@ def fanbeam_to_parallel(
     return rebinned
 
 
-def CTSlice(sinogram, angle_range=180):
+def CTSlice(sinogram, angle_range="auto", sensor_orientation="auto"):
     """
     Reconstruct a CT slice from a sinogram using Direct Fourier Reconstruction.
     
@@ -258,10 +415,13 @@ def CTSlice(sinogram, angle_range=180):
         2D array where each row represents a parallel projection at a specific angle.
         Shape: (num_angles, num_detectors)
         Can be integer type (will be converted to float) or already float.
-    angle_range : int or float, optional
+    angle_range : int, float, or 'auto', optional
         The angular range covered by the sinogram in degrees.
-        Typically 180 or 360. Default is 180.
-        Must be between 1 and 360.
+        Typically 180 or 360. Default is 'auto' to detect from redundancy.
+        Must be between 1 and 360 when provided explicitly.
+    sensor_orientation : {'auto', 'angles_rows', 'angles_cols'}, optional
+        If set to 'auto', transpose sinograms that look like angles are stored
+        along columns so functions always receive (num_angles, num_detectors).
         
     Returns
     -------
@@ -295,7 +455,9 @@ def CTSlice(sinogram, angle_range=180):
     >>> reconstructed = CTSlice(sino, angle_range=360)
     """
     
-    sinogram, angle_range, _, _ = _validate_inputs(sinogram, angle_range)
+    sinogram, angle_range, _, _ = _validate_inputs(
+        sinogram, angle_range, sensor_orientation=sensor_orientation
+    )
 
     # Use the gridded implementation which provides better results
     return CTSlice_gridded(sinogram, angle_range)
@@ -329,9 +491,7 @@ def CTSlice_gridded(sinogram, angle_range=180):
     output_size = num_detectors
     
     # Compute 1D FFT for all projections
-    projections_fft = np.zeros((num_angles, num_detectors), dtype=complex)
-    for i in range(num_angles):
-        projections_fft[i] = fftshift(fft(ifftshift(sinogram[i])))
+    projections_fft = fftshift(fft(ifftshift(sinogram, axes=1), axis=1), axes=1)
     
     # Create 2D Cartesian frequency grid centered at origin
     center = output_size // 2
@@ -486,10 +646,12 @@ def _backproject(filtered, theta_radians, output_size, crop_to_circle=True):
 
 def CTRadon(
     sinogram,
-    angle_range=180,
+    angle_range="auto",
     filter_name="ram-lak",
     output_size=None,
     crop_to_circle=True,
+    *,
+    sensor_orientation="auto",
 ):
     """
     Reconstruct a CT slice using Filtered Backprojection (FBP).
@@ -499,8 +661,8 @@ def CTRadon(
     sinogram : numpy.ndarray
         2D array where each row represents a parallel projection at a specific angle.
         Shape: (num_angles, num_detectors)
-    angle_range : int or float, optional
-        Total angular coverage in degrees. Default is 180. Must be in (0, 360].
+    angle_range : int, float, or 'auto', optional
+        Total angular coverage in degrees. Default is 'auto'. Must be in (0, 360].
     filter_name : str or None, optional
         Filter to apply in Fourier domain. Supported: 'ram-lak', 'ramp',
         'shepp-logan', 'cosine', 'hamming', 'hann', or None for no filtering.
@@ -508,6 +670,8 @@ def CTRadon(
         Number of rows/columns in the reconstructed slice. Defaults to number of detectors.
     crop_to_circle : bool, optional
         If True (default) zeroes pixels outside the inscribed circle.
+    sensor_orientation : {'auto', 'angles_rows', 'angles_cols'}, optional
+        Auto-detect or force whether angles are stored along rows or columns.
 
     Returns
     -------
@@ -515,7 +679,9 @@ def CTRadon(
         Reconstructed CT slice using the FBP method.
     """
 
-    sinogram, angle_range, num_angles, num_detectors = _validate_inputs(sinogram, angle_range)
+    sinogram, angle_range, num_angles, num_detectors = _validate_inputs(
+        sinogram, angle_range, sensor_orientation=sensor_orientation
+    )
 
     working_sinogram = sinogram
     detector_extent = num_detectors

@@ -200,6 +200,9 @@ def main():
         'sino_circle.png', 
         'sino_drawing.png',
         'sino.jpg',
+        'SheppLoganPhantom.png',
+        'Lotus.png',
+        'Walnut.png',
     ]
     
     # Also test the other images which might be sinograms or reference images
