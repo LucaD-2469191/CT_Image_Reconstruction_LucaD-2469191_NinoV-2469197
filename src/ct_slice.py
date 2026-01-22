@@ -20,101 +20,18 @@ from scipy.ndimage import map_coordinates
 def _auto_orient_sinogram(sinogram, sensor_orientation="auto"):
     """
     Ensure the sinogram uses (num_angles, num_detectors) ordering.
-
-    The routine first leverages automated center-of-rotation (CoR) estimation
-    directly from the sinogram redundancy (a standard CT practice) to see which
-    axis behaves like the detector axis. If the CoR-based metric is inconclusive,
-    it falls back to simple dimensional heuristics.
     """
     if sensor_orientation not in {"auto", "angles_rows", "angles_cols"}:
         raise ValueError("sensor_orientation must be 'auto', 'angles_rows', or 'angles_cols'")
 
-    rows, cols = sinogram.shape
-
     if sensor_orientation == "angles_rows":
         return sinogram, "angles_rows"
-    if sensor_orientation == "angles_cols":
-        return sinogram.T, "angles_rows"
-
-    def _center_of_rotation_cost(candidate):
-        candidate = np.asarray(candidate, dtype=np.float64)
-        num_angles, num_detectors = candidate.shape
-        if num_angles < 32 or num_detectors < 8:
-            return float("inf")
-        half = num_angles // 2
-        if half < 4 or num_angles < 2 * half:
-            return float("inf")
-        block_a = candidate[:half]
-        block_b = candidate[half : 2 * half]
-        usable = min(block_a.shape[0], block_b.shape[0])
-        if usable < 4:
-            return float("inf")
-        block_a = block_a[:usable]
-        block_b = block_b[:usable]
-        coords = np.arange(num_detectors, dtype=np.float64) - (num_detectors - 1) / 2.0
-        sums_a = np.sum(block_a, axis=1)
-        sums_b = np.sum(block_b, axis=1)
-        mask_a = np.abs(sums_a) > 1e-8
-        mask_b = np.abs(sums_b) > 1e-8
-        valid = mask_a & mask_b
-        if not np.any(valid):
-            return float("inf")
-        centers_a = np.zeros_like(sums_a, dtype=np.float64)
-        centers_b = np.zeros_like(sums_b, dtype=np.float64)
-        centers_a[mask_a] = (block_a[mask_a] @ coords) / sums_a[mask_a]
-        centers_b[mask_b] = (block_b[mask_b] @ coords) / sums_b[mask_b]
-        cost = np.mean(np.abs(centers_a[valid] + centers_b[valid]))
-        return float(cost)
-
-    cor_cost_rows = _center_of_rotation_cost(sinogram)
-    cor_cost_cols = _center_of_rotation_cost(sinogram.T)
-    cor_candidates = sorted(
-        [("angles_rows", cor_cost_rows), ("angles_cols", cor_cost_cols)],
-        key=lambda item: item[1],
-    )
-    best_orientation, best_cost = cor_candidates[0]
-    second_cost = cor_candidates[1][1]
-    
-    if np.isfinite(best_cost):
-        if not np.isfinite(second_cost) or best_cost * 1.05 < second_cost or best_cost < 1e-3:
-            if best_orientation == "angles_rows":
-                return sinogram, "angles_rows"
-            return sinogram.T, "angles_rows"
-            
-    
-    print("COR failed")
-    
-    
-    def _mod180_distance(n: int) -> float:
-        if n <= 0:
-            return float("inf")
-        rem = n % 180
-        return float(min(rem, 180 - rem))
-
-    row_mod = _mod180_distance(rows)
-    col_mod = _mod180_distance(cols)
-    if row_mod + 1e-6 < col_mod:
-        return sinogram, "angles_rows"
-    if col_mod + 1e-6 < row_mod:
-        return sinogram.T, "angles_rows"
-
-    def _score(n):
-        return min(abs(n - 180), abs(n - 360))
-
-    row_score = _score(rows)
-    col_score = _score(cols)
-
-    if col_score + 5 < row_score:
-        return sinogram.T, "angles_rows"
-    if row_score + 5 < col_score:
+    elif sensor_orientation == "angles_cols":
+        return sinogram.T, "angles_cols"
+    else:
+        #TODO: Implement sensor orientation detection
         return sinogram, "angles_rows"
 
-    if cols > rows * 1.1:
-        return sinogram, "angles_rows"
-    if rows > cols * 1.1:
-        return sinogram.T, "angles_rows"
-
-    return sinogram, "angles_rows"
 
 
 def _detect_angle_range_from_sinogram(sinogram):

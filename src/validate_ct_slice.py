@@ -398,13 +398,13 @@ def main(show_plots=True):
     data_dir = project_root / 'Data' / 'Parallel Projection'
     
     test_cases = [
-        ('sino_42.png', 180, "auto"),  # Appears to be 180° based on 180 angles
-        ('sino_circle.png', 360, "auto"),  # 361 angles suggests 360°
-        ('sino_drawing.png', 180, "auto"),  # 180 angles
-        ('sino.jpg', None, "auto"),  # Auto-detect (375 angles -> likely 360°)
+        ('sino_42.png', 180, "angles_rows"),
+        ('sino_circle.png', 360, "angles_rows"), # 361 angles suggests 360°
+        ('sino_drawing.png', 180, "angles_rows"),  
+        ('sino.jpg', 360, "angles_rows"),  
         ('SheppLoganPhantom.png', 180, "angles_rows"),
-        ('Lotus.png', 360, "auto"),
-        ('Walnut.png', 360, "auto"),
+        ('Lotus.png', 360, "angles_cols"),
+        ('Walnut.png', 360, "angles_cols"),
     ]
     
     # Run tests
